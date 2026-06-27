@@ -12,6 +12,7 @@ import (
 	deliveryhttp "github.com/nrmadi02/sql-ai/internal/delivery/http"
 	"github.com/nrmadi02/sql-ai/internal/delivery/http/handler"
 	"github.com/nrmadi02/sql-ai/internal/infrastructure/adapter"
+	"github.com/nrmadi02/sql-ai/internal/infrastructure/ai"
 	"github.com/nrmadi02/sql-ai/internal/infrastructure/config"
 	"github.com/nrmadi02/sql-ai/internal/infrastructure/database"
 	"github.com/nrmadi02/sql-ai/internal/infrastructure/encryption"
@@ -39,14 +40,42 @@ func main() {
 		log.Fatalf("failed to initialize encryption: %v", err)
 	}
 
-	datasourceRepo := repository.NewDatasourceRepository(pool, enc)
 	adapterRegistry := adapter.NewRegistry()
+	aiClient := ai.NewClient()
+
+	datasourceRepo := repository.NewDatasourceRepository(pool, enc)
+	aiProviderRepo := repository.NewAIProviderRepository(pool, enc)
+
 	datasourceUsecase := usecase.NewDatasourceUsecase(datasourceRepo, adapterRegistry)
+	schemaUsecase := usecase.NewSchemaUsecase(datasourceRepo, adapterRegistry)
+	aiProviderUsecase := usecase.NewAIProviderUsecase(aiProviderRepo, aiClient)
+
+	generatorRepo := repository.NewGeneratorRepository(pool)
+	savedQueryRepo := repository.NewSavedQueryRepository(pool)
+	queryHistoryRepo := repository.NewQueryHistoryRepository(pool)
+	aiGateway := ai.NewGateway()
+	generatorUsecase := usecase.NewGeneratorUsecase(generatorRepo, datasourceRepo, aiProviderRepo, aiGateway)
+	queryHistoryUsecase := usecase.NewQueryHistoryUsecase(queryHistoryRepo)
+	savedQueryUsecase := usecase.NewSavedQueryUsecase(savedQueryRepo)
+	queryUsecase := usecase.NewQueryUsecase(datasourceRepo, generatorRepo, queryHistoryUsecase, adapterRegistry)
+
 	datasourceHandler := handler.NewDatasourceHandler(datasourceUsecase)
+	schemaHandler := handler.NewSchemaHandler(schemaUsecase)
+	aiProviderHandler := handler.NewAIProviderHandler(aiProviderUsecase)
+	generatorHandler := handler.NewGeneratorHandler(generatorUsecase)
+	queryHandler := handler.NewQueryHandler(queryUsecase)
+	savedQueryHandler := handler.NewSavedQueryHandler(savedQueryUsecase)
+	queryHistoryHandler := handler.NewQueryHistoryHandler(queryHistoryUsecase)
 
 	app := deliveryhttp.NewRouter(deliveryhttp.RouterConfig{
-		CORSOrigin:        cfg.CORSOrigin,
-		DatasourceHandler: datasourceHandler,
+		CORSOrigin:          cfg.CORSOrigin,
+		DatasourceHandler:   datasourceHandler,
+		SchemaHandler:       schemaHandler,
+		AIProviderHandler:   aiProviderHandler,
+		GeneratorHandler:    generatorHandler,
+		QueryHandler:        queryHandler,
+		SavedQueryHandler:   savedQueryHandler,
+		QueryHistoryHandler: queryHistoryHandler,
 	})
 
 	go func() {

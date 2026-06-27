@@ -1,12 +1,8 @@
 package handler
 
 import (
-	"errors"
-
 	"github.com/gofiber/fiber/v2"
-	"github.com/google/uuid"
 	"github.com/nrmadi02/sql-ai/internal/delivery/http/dto"
-	"github.com/nrmadi02/sql-ai/internal/domain"
 	"github.com/nrmadi02/sql-ai/internal/usecase"
 )
 
@@ -119,31 +115,38 @@ func (h *DatasourceHandler) TestConnection(c *fiber.Ctx) error {
 		return mapDomainError(err)
 	}
 
+	return respondTestConnection(c, result)
+}
+
+func (h *DatasourceHandler) TestConnectionWithBody(c *fiber.Ctx) error {
+	var req dto.CreateDatasourceRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request format")
+	}
+
+	result, err := h.usecase.TestConnectionWithInput(c.Context(), usecase.CreateDatasourceInput{
+		Name:           req.Name,
+		DBType:         req.DBType,
+		Host:           req.Host,
+		Port:           req.Port,
+		DatabaseName:   req.DatabaseName,
+		Username:       req.Username,
+		Password:       req.Password,
+		SSLMode:        req.SSLMode,
+		MaxConnections: req.MaxConnections,
+	})
+	if err != nil {
+		return mapDomainError(err)
+	}
+
+	return respondTestConnection(c, result)
+}
+
+func respondTestConnection(c *fiber.Ctx, result *usecase.TestConnectionResult) error {
 	status := fiber.StatusOK
 	if !result.Success {
 		status = fiber.StatusBadGateway
 	}
-
 	return c.Status(status).JSON(result)
 }
 
-func parseUUIDParam(c *fiber.Ctx, name string) (uuid.UUID, error) {
-	id, err := uuid.Parse(c.Params(name))
-	if err != nil {
-		return uuid.Nil, fiber.NewError(fiber.StatusBadRequest, "invalid id")
-	}
-	return id, nil
-}
-
-func mapDomainError(err error) error {
-	switch {
-	case errors.Is(err, domain.ErrNotFound):
-		return fiber.NewError(fiber.StatusNotFound, err.Error())
-	case errors.Is(err, domain.ErrInvalidInput):
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	case errors.Is(err, domain.ErrUnsupportedDBType):
-		return fiber.NewError(fiber.StatusBadRequest, err.Error())
-	default:
-		return fiber.NewError(fiber.StatusInternalServerError, "internal server error")
-	}
-}
