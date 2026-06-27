@@ -11,31 +11,37 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import * as React from "react";
 import { EmptyState } from "@/components/empty-state";
+import { useActiveDatasource } from "@/components/providers/datasource-provider";
 import { Button } from "@/components/ui/button";
-import type { SetupStatus } from "@/lib/types";
+import { Spinner } from "@/components/ui/spinner";
+import { useAiProviders } from "@/hooks/use-ai-provider";
+import { useDatasources } from "@/hooks/use-datasource";
+import {
+  useCreateGeneratorSession,
+  useGeneratorSessions,
+} from "@/hooks/use-generator";
+import { buttons } from "@/lib/microcopy";
 
-// Entry point app (/generator). Backend belum terhubung; status di bawah adalah MOCK
-// eksplisit untuk tiga kondisi onboarding. Ganti dengan fetch ke
-//   GET /api/v1/datasources  dan  GET /api/v1/ai-providers
-// setelah backend siap.
-const setupStatusMock: SetupStatus = {
-  hasDatasource: false,
-  hasAiProvider: false,
-};
-
-function SetupSteps({ status }: { status: SetupStatus }) {
+function SetupSteps({
+  hasDatasource,
+  hasAiProvider,
+}: {
+  hasDatasource: boolean;
+  hasAiProvider: boolean;
+}) {
   const steps = [
     {
       label: "Hubungkan database",
-      done: status.hasDatasource,
+      done: hasDatasource,
       icon: Database02Icon,
     },
     {
       label: "Daftarkan AI provider",
-      done: status.hasAiProvider,
+      done: hasAiProvider,
       icon: AiBrain02Icon,
     },
   ];
+
   return (
     <div className="flex items-center gap-3 text-xs">
       {steps.map((step, i) => (
@@ -72,9 +78,28 @@ function SetupSteps({ status }: { status: SetupStatus }) {
 }
 
 function GeneratorPage() {
-  const status = setupStatusMock;
+  const { data: datasources, isLoading: datasourcesLoading } = useDatasources();
+  const { data: providers, isLoading: providersLoading } = useAiProviders();
+  const { data: sessions, isLoading: sessionsLoading } = useGeneratorSessions();
+  const { activeDatasourceId } = useActiveDatasource();
+  const createSession = useCreateGeneratorSession();
 
-  if (!status.hasDatasource) {
+  const activeDatasources = datasources?.filter((item) => item.is_active) ?? [];
+  const hasDatasource = activeDatasources.length > 0;
+  const hasAiProvider = (providers?.length ?? 0) > 0;
+  const defaultProvider = providers?.find((item) => item.is_default);
+
+  const isLoading = datasourcesLoading || providersLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-1 items-center justify-center">
+        <Spinner className="size-6" />
+      </div>
+    );
+  }
+
+  if (!hasDatasource) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <EmptyState
@@ -90,13 +115,16 @@ function GeneratorPage() {
             </Button>
           }
         >
-          <SetupSteps status={status} />
+          <SetupSteps
+            hasDatasource={hasDatasource}
+            hasAiProvider={hasAiProvider}
+          />
         </EmptyState>
       </div>
     );
   }
 
-  if (!status.hasAiProvider) {
+  if (!hasAiProvider) {
     return (
       <div className="flex flex-1 items-center justify-center">
         <EmptyState
@@ -112,11 +140,16 @@ function GeneratorPage() {
             </Button>
           }
         >
-          <SetupSteps status={status} />
+          <SetupSteps
+            hasDatasource={hasDatasource}
+            hasAiProvider={hasAiProvider}
+          />
         </EmptyState>
       </div>
     );
   }
+
+  const latestSession = sessions?.[0];
 
   return (
     <div className="flex flex-1 items-center justify-center">
@@ -124,6 +157,33 @@ function GeneratorPage() {
         icon={BubbleChatSpark01Icon}
         title="Mulai pertanyaan baru"
         description="Ketik pertanyaan tentang datamu. Sebut tabel pakai garis miring, misalnya /pesanan, untuk membantu AI memahami konteks."
+        action={
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button
+              disabled={createSession.isPending}
+              onClick={() =>
+                createSession.mutate({
+                  datasource_id: activeDatasourceId ?? undefined,
+                  ai_provider_id: defaultProvider?.id,
+                })
+              }
+            >
+              {createSession.isPending ? (
+                <Spinner className="size-4" />
+              ) : (
+                <HugeiconsIcon icon={BubbleChatSpark01Icon} strokeWidth={2} />
+              )}
+              {buttons.newSession}
+            </Button>
+            {latestSession && !sessionsLoading ? (
+              <Button variant="outline" asChild>
+                <Link href={`/generator/${latestSession.id}`}>
+                  Lanjutkan percakapan terakhir
+                </Link>
+              </Button>
+            ) : null}
+          </div>
+        }
       />
     </div>
   );

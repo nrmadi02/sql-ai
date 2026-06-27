@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Bricolage_Grotesque, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { NuqsProvider } from "@/components/providers/nuqs-provider";
+import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +40,11 @@ export default function RootLayout({
       className={cn(bricolage.variable, jetbrains.variable)}
     >
       <body className="min-h-dvh bg-background font-sans text-foreground antialiased">
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <NuqsProvider>
+            <QueryProvider>{children}</QueryProvider>
+          </NuqsProvider>
+        </ThemeProvider>
       </body>
     </html>
   );
