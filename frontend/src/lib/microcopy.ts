@@ -57,6 +57,7 @@ export const generator = {
   emptySession:
     "Mulai dengan pertanyaan singkat. AI akan merangkai SQL berdasarkan schema datasource aktif.",
   noSessions: "Belum ada percakapan. Buat pertanyaan baru untuk mulai.",
+  openSessions: "Percakapan",
   untitledSession: "Percakapan baru",
   tableMentionLabel: "Tabel dirujuk",
   sqlLabel: "SQL yang dihasilkan",
@@ -133,6 +134,54 @@ export const history = {
   columnStatus: "Status",
   columnDuration: "Durasi",
   columnRows: "Baris",
+} as const;
+
+export const sqlEditor = {
+  pageTitle: "SQL Editor",
+  pageDescription:
+    "Tulis dan jalankan SQL langsung. Autocomplete schema, multi-tab, dan riwayat eksekusi.",
+  newSession: "Sesi baru",
+  noSessions: "Belum ada sesi editor. Buat sesi baru untuk mulai menulis SQL.",
+  untitledSession: "Sesi editor baru",
+  defaultTabName: "Query",
+  schemaPanel: "Schema",
+  historyPanel: "Riwayat",
+  openSessions: "Sesi",
+  openSchema: "Schema",
+  openHistory: "Riwayat",
+  schemaSheetDescription:
+    "Jelajahi tabel dan kolom. Klik untuk sisipkan ke editor.",
+  historySheetDescription: "Query yang pernah dijalankan dari editor ini.",
+  searchSchema: "Cari tabel atau kolom…",
+  emptyEditor:
+    "Mulai menulis SQL. Autocomplete tabel dan kolom aktif setelah datasource dipilih.",
+  selectDatasource: "Pilih datasource di toolbar untuk menjalankan query.",
+  runSelection: "Jalankan seleksi",
+  formatSql: "Format SQL",
+  statusBarDatasource: "Datasource",
+  statusBarDialect: "Dialek",
+  statusBarRows: "Baris",
+  statusBarDuration: "Durasi",
+  historyEmpty: "Belum ada query dari editor.",
+  historySearch: "Cari SQL…",
+  renameTab: "Ganti nama tab",
+  closeTab: "Tutup tab",
+  newTab: "Tab baru",
+  sessionLabel: "Sesi",
+  renameSession: "Ganti nama sesi",
+  renameSessionPlaceholder: "Nama sesi, mis. Analisis users",
+  renameSessionHint: "Double-click untuk ganti nama",
+  sessionRenamed: "Nama sesi diperbarui",
+  sessionDeleted: "Sesi editor dihapus",
+  tabSaved: "Tab tersimpan",
+  openFromSaved: "Buka di Editor",
+  shortcuts: {
+    run: "Ctrl+Enter",
+    format: "Ctrl+Shift+F",
+    newTab: "Ctrl+T",
+    closeTab: "Ctrl+W",
+    nextTab: "Ctrl+Tab",
+  },
 } as const;
 
 export const toasts = {

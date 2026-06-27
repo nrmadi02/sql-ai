@@ -227,6 +227,8 @@ export type UpdateSavedQueryInput = {
   tags?: string[];
 };
 
+export type QueryHistorySource = "generator" | "editor";
+
 export type QueryHistoryEntry = {
   id: string;
   datasource_id?: string;
@@ -235,8 +237,76 @@ export type QueryHistoryEntry = {
   execution_time_ms?: number;
   row_count?: number;
   status: QueryHistoryStatus;
+  source?: QueryHistorySource;
   error_message?: string;
   created_at: string;
+};
+
+export type SqlEditorTabStatus = "success" | "failed" | "";
+
+export type SqlEditorTab = {
+  id: string;
+  session_id?: string;
+  name: string;
+  sql_content: string;
+  sort_order: number;
+  last_result?: unknown;
+  execution_time_ms?: number;
+  row_count?: number;
+  last_status?: SqlEditorTabStatus;
+  error_message?: string;
+  created_at?: string;
+  updated_at?: string;
+};
+
+export type SqlEditorSession = {
+  id: string;
+  name: string;
+  datasource_id?: string;
+  tabs?: SqlEditorTab[];
+  created_at: string;
+  updated_at?: string;
+};
+
+export type CreateSqlEditorSessionInput = {
+  name?: string;
+  datasource_id?: string;
+};
+
+export type UpdateSqlEditorSessionInput = {
+  name?: string;
+  datasource_id?: string;
+};
+
+export type CreateSqlEditorTabInput = {
+  name?: string;
+  sql_content?: string;
+};
+
+export type UpdateSqlEditorTabInput = {
+  name: string;
+  sql_content: string;
+  sort_order?: number;
+};
+
+export type RunSqlEditorTabInput = {
+  max_rows?: number;
+  sql?: string;
+};
+
+export type SqlEditorAutocompleteColumn = {
+  name: string;
+  type: string;
+};
+
+export type SqlEditorAutocompleteTable = {
+  name: string;
+  columns: SqlEditorAutocompleteColumn[];
+};
+
+export type SqlEditorAutocomplete = {
+  dialect: string;
+  tables: SqlEditorAutocompleteTable[];
 };
 
 export type QueryHistoryPage = {

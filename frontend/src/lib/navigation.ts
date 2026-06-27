@@ -2,6 +2,7 @@ import {
   Bookmark01Icon,
   BubbleChatSpark01Icon,
   Clock01Icon,
+  CodeIcon,
   Settings02Icon,
 } from "@hugeicons/core-free-icons";
 
@@ -21,6 +22,12 @@ export const primaryNav: NavItem[] = [
     href: "/generator",
     icon: BubbleChatSpark01Icon,
     description: "Tanya database pakai bahasa biasa",
+  },
+  {
+    label: "SQL Editor",
+    href: "/sql-editor",
+    icon: CodeIcon,
+    description: "Tulis dan jalankan SQL secara manual",
   },
   {
     label: "Riwayat",

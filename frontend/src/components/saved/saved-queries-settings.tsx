@@ -2,6 +2,7 @@
 
 import {
   Bookmark01Icon,
+  CodeIcon,
   Delete02Icon,
   PlayIcon,
   Search01Icon,
@@ -33,6 +34,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useOpenInSqlEditor } from "@/hooks/use-sql-editor";
 import { useDeleteSavedQuery, useSavedQueries } from "@/hooks/use-saved-query";
 import { buttons, saved } from "@/lib/microcopy";
 import { previewSql } from "@/lib/query-utils";
@@ -62,6 +64,7 @@ function SavedQueriesSettings() {
 
   const { data, isLoading } = useSavedQueries(search, tagFilter);
   const deleteMutation = useDeleteSavedQuery();
+  const openInEditor = useOpenInSqlEditor();
 
   const allTags = useMemo(() => {
     const tags = new Set<string>();
@@ -213,15 +216,34 @@ function SavedQueriesSettings() {
                   </span>
                 </div>
 
-                <Button
-                  type="button"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => openQuery(item, true)}
-                >
-                  <HugeiconsIcon icon={PlayIcon} strokeWidth={2} />
-                  {saved.openQuery}
-                </Button>
+                <div className="flex flex-col gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="w-full"
+                    disabled={openInEditor.isPending}
+                    onClick={() =>
+                      openInEditor.mutate({
+                        sql: item.sql_content,
+                        datasourceId: item.datasource_id,
+                        name: item.name,
+                      })
+                    }
+                  >
+                    <HugeiconsIcon icon={CodeIcon} strokeWidth={2} />
+                    {saved.openQuery}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => openQuery(item, true)}
+                  >
+                    <HugeiconsIcon icon={PlayIcon} strokeWidth={2} />
+                    {buttons.run}
+                  </Button>
+                </div>
               </article>
             ))}
           </div>

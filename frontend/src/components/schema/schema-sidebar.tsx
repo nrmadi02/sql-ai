@@ -3,6 +3,7 @@
 import { Database02Icon, TableIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useActiveDatasource } from "@/components/providers/datasource-provider";
 import { TablePreviewSheet } from "@/components/schema/table-preview-sheet";
@@ -31,6 +32,7 @@ import { buttons } from "@/lib/microcopy";
 import { cn } from "@/lib/utils";
 
 function SchemaSidebar() {
+  const pathname = usePathname();
   const { data: datasources, isLoading: datasourcesLoading } = useDatasources();
   const { activeDatasourceId, setActiveDatasourceId } = useActiveDatasource();
   const tablesQuery = useSchemaTables(activeDatasourceId);
@@ -48,6 +50,13 @@ function SchemaSidebar() {
   const schemaNotCached =
     tablesQuery.isError &&
     tablesQuery.error.message.toLowerCase().includes("schema not cached");
+
+  const isGeneratorRoute =
+    pathname === "/generator" || pathname.startsWith("/generator/");
+
+  if (!isGeneratorRoute) {
+    return null;
+  }
 
   return (
     <>

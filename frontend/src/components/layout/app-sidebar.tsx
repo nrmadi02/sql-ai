@@ -4,7 +4,6 @@ import { Database02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GeneratorSessionsSidebar } from "@/components/generator/generator-sessions-sidebar";
 import { SchemaSidebar } from "@/components/schema/schema-sidebar";
 import {
   Sidebar,
@@ -60,7 +59,10 @@ function AppSidebar() {
                   item.href === "/generator"
                     ? pathname === "/generator" ||
                       pathname.startsWith("/generator/")
-                    : pathname.startsWith(item.href);
+                    : item.href === "/sql-editor"
+                      ? pathname === "/sql-editor" ||
+                        pathname.startsWith("/sql-editor/")
+                      : pathname.startsWith(item.href);
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton
@@ -80,7 +82,6 @@ function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <GeneratorSessionsSidebar />
         <SchemaSidebar />
       </SidebarContent>
 

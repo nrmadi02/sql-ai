@@ -7,6 +7,7 @@ import type { QueryHistoryEntry, QueryHistoryPage } from "@/lib/types";
 export type QueryHistoryFilters = {
   datasourceId?: string;
   status?: string;
+  source?: string;
   fromDate?: string;
   toDate?: string;
   page?: number;
@@ -23,6 +24,7 @@ function buildHistoryQuery(filters: QueryHistoryFilters): string {
   const params = new URLSearchParams();
   if (filters.datasourceId) params.set("datasource_id", filters.datasourceId);
   if (filters.status) params.set("status", filters.status);
+  if (filters.source) params.set("source", filters.source);
   if (filters.fromDate) params.set("from_date", filters.fromDate);
   if (filters.toDate) params.set("to_date", filters.toDate);
   if (filters.page) params.set("page", String(filters.page));
