@@ -14,14 +14,22 @@ function ThemeToggle() {
 
   React.useEffect(() => setMounted(true), []);
 
-  const isDark = resolvedTheme === "dark";
+  const isDark = mounted && resolvedTheme === "dark";
 
   return (
     <Button
       variant="ghost"
       size="icon"
-      aria-label={isDark ? "Ganti ke mode terang" : "Ganti ke mode gelap"}
-      onClick={() => setTheme(isDark ? "light" : "dark")}
+      aria-label={
+        mounted
+          ? isDark
+            ? "Ganti ke mode terang"
+            : "Ganti ke mode gelap"
+          : "Ganti tema"
+      }
+      onClick={() =>
+        setTheme(resolvedTheme === "dark" ? "light" : "dark")
+      }
     >
       {mounted ? (
         <HugeiconsIcon icon={isDark ? Sun02Icon : Moon02Icon} strokeWidth={2} />

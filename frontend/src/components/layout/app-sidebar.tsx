@@ -4,6 +4,8 @@ import { Database02Icon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { GeneratorSessionsSidebar } from "@/components/generator/generator-sessions-sidebar";
+import { SchemaSidebar } from "@/components/schema/schema-sidebar";
 import {
   Sidebar,
   SidebarContent,
@@ -77,6 +79,9 @@ function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        <GeneratorSessionsSidebar />
+        <SchemaSidebar />
       </SidebarContent>
 
       <SidebarFooter />
