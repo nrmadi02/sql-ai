@@ -17,6 +17,7 @@ const (
 type ListQueryHistoryInput struct {
 	DatasourceID *uuid.UUID
 	Status       string
+	Source       string
 	FromDate     *time.Time
 	ToDate       *time.Time
 	Page         int
@@ -60,6 +61,7 @@ func (u *QueryHistoryUsecase) List(ctx context.Context, input ListQueryHistoryIn
 	filter := repository.ListQueryHistoryFilter{
 		DatasourceID: input.DatasourceID,
 		Status:       input.Status,
+		Source:       input.Source,
 		FromDate:     input.FromDate,
 		ToDate:       input.ToDate,
 		Limit:        pageSize,
@@ -95,15 +97,21 @@ func (u *QueryHistoryUsecase) RecordExecution(
 	datasourceID uuid.UUID,
 	sql string,
 	naturalLanguagePrompt string,
+	source string,
 	executionTimeMs *int,
 	rowCount *int,
 	status string,
 	errorMessage string,
 ) {
+	if source == "" {
+		source = entity.QueryHistorySourceGenerator
+	}
+
 	entry := &entity.QueryHistory{
 		DatasourceID:          &datasourceID,
 		SQLContent:            sql,
 		NaturalLanguagePrompt: naturalLanguagePrompt,
+		Source:                source,
 		ExecutionTimeMs:       executionTimeMs,
 		RowCount:              rowCount,
 		Status:                status,

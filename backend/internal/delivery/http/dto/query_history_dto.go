@@ -13,6 +13,7 @@ type QueryHistoryResponse struct {
 	DatasourceID          *uuid.UUID `json:"datasource_id"`
 	SQLContent            string     `json:"sql_content"`
 	NaturalLanguagePrompt string     `json:"natural_language_prompt,omitempty"`
+	Source                string     `json:"source"`
 	ExecutionTimeMs       *int       `json:"execution_time_ms,omitempty"`
 	RowCount              *int       `json:"row_count,omitempty"`
 	Status                string     `json:"status"`
@@ -34,6 +35,7 @@ func ToQueryHistoryResponse(entry *entity.QueryHistory) QueryHistoryResponse {
 		DatasourceID:          entry.DatasourceID,
 		SQLContent:            entry.SQLContent,
 		NaturalLanguagePrompt: entry.NaturalLanguagePrompt,
+		Source:                entry.Source,
 		ExecutionTimeMs:       entry.ExecutionTimeMs,
 		RowCount:              entry.RowCount,
 		Status:                entry.Status,

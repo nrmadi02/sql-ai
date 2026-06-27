@@ -30,6 +30,11 @@ AND (
     $4::timestamp IS NULL
     OR created_at <= $4
 )
+AND (
+    $5::text IS NULL
+    OR $5::text = ''
+    OR source = $5
+)
 `
 
 type CountQueryHistoryParams struct {
@@ -37,6 +42,7 @@ type CountQueryHistoryParams struct {
 	Status       pgtype.Text      `json:"status"`
 	FromDate     pgtype.Timestamp `json:"from_date"`
 	ToDate       pgtype.Timestamp `json:"to_date"`
+	Source       pgtype.Text      `json:"source"`
 }
 
 func (q *Queries) CountQueryHistory(ctx context.Context, arg CountQueryHistoryParams) (int64, error) {
@@ -45,6 +51,7 @@ func (q *Queries) CountQueryHistory(ctx context.Context, arg CountQueryHistoryPa
 		arg.Status,
 		arg.FromDate,
 		arg.ToDate,
+		arg.Source,
 	)
 	var count int64
 	err := row.Scan(&count)
@@ -56,18 +63,20 @@ INSERT INTO query_history (
     datasource_id,
     sql_content,
     natural_language_prompt,
+    source,
     execution_time_ms,
     row_count,
     status,
     error_message
-) VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, datasource_id, sql_content, natural_language_prompt, execution_time_ms, row_count, status, error_message, created_at
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+RETURNING id, datasource_id, sql_content, natural_language_prompt, execution_time_ms, row_count, status, error_message, created_at, source
 `
 
 type CreateQueryHistoryParams struct {
 	DatasourceID          pgtype.UUID `json:"datasource_id"`
 	SqlContent            string      `json:"sql_content"`
 	NaturalLanguagePrompt pgtype.Text `json:"natural_language_prompt"`
+	Source                string      `json:"source"`
 	ExecutionTimeMs       pgtype.Int4 `json:"execution_time_ms"`
 	RowCount              pgtype.Int4 `json:"row_count"`
 	Status                string      `json:"status"`
@@ -79,6 +88,7 @@ func (q *Queries) CreateQueryHistory(ctx context.Context, arg CreateQueryHistory
 		arg.DatasourceID,
 		arg.SqlContent,
 		arg.NaturalLanguagePrompt,
+		arg.Source,
 		arg.ExecutionTimeMs,
 		arg.RowCount,
 		arg.Status,
@@ -95,12 +105,13 @@ func (q *Queries) CreateQueryHistory(ctx context.Context, arg CreateQueryHistory
 		&i.Status,
 		&i.ErrorMessage,
 		&i.CreatedAt,
+		&i.Source,
 	)
 	return i, err
 }
 
 const getQueryHistory = `-- name: GetQueryHistory :one
-SELECT id, datasource_id, sql_content, natural_language_prompt, execution_time_ms, row_count, status, error_message, created_at FROM query_history WHERE id = $1
+SELECT id, datasource_id, sql_content, natural_language_prompt, execution_time_ms, row_count, status, error_message, created_at, source FROM query_history WHERE id = $1
 `
 
 func (q *Queries) GetQueryHistory(ctx context.Context, id pgtype.UUID) (QueryHistory, error) {
@@ -116,12 +127,13 @@ func (q *Queries) GetQueryHistory(ctx context.Context, id pgtype.UUID) (QueryHis
 		&i.Status,
 		&i.ErrorMessage,
 		&i.CreatedAt,
+		&i.Source,
 	)
 	return i, err
 }
 
 const listQueryHistory = `-- name: ListQueryHistory :many
-SELECT id, datasource_id, sql_content, natural_language_prompt, execution_time_ms, row_count, status, error_message, created_at FROM query_history
+SELECT id, datasource_id, sql_content, natural_language_prompt, execution_time_ms, row_count, status, error_message, created_at, source FROM query_history
 WHERE (
     $3::uuid IS NULL
     OR datasource_id = $3
@@ -139,6 +151,11 @@ AND (
     $6::timestamp IS NULL
     OR created_at <= $6
 )
+AND (
+    $7::text IS NULL
+    OR $7::text = ''
+    OR source = $7
+)
 ORDER BY created_at DESC
 LIMIT $1 OFFSET $2
 `
@@ -150,6 +167,7 @@ type ListQueryHistoryParams struct {
 	Status       pgtype.Text      `json:"status"`
 	FromDate     pgtype.Timestamp `json:"from_date"`
 	ToDate       pgtype.Timestamp `json:"to_date"`
+	Source       pgtype.Text      `json:"source"`
 }
 
 func (q *Queries) ListQueryHistory(ctx context.Context, arg ListQueryHistoryParams) ([]QueryHistory, error) {
@@ -160,6 +178,7 @@ func (q *Queries) ListQueryHistory(ctx context.Context, arg ListQueryHistoryPara
 		arg.Status,
 		arg.FromDate,
 		arg.ToDate,
+		arg.Source,
 	)
 	if err != nil {
 		return nil, err
@@ -178,6 +197,7 @@ func (q *Queries) ListQueryHistory(ctx context.Context, arg ListQueryHistoryPara
 			&i.Status,
 			&i.ErrorMessage,
 			&i.CreatedAt,
+			&i.Source,
 		); err != nil {
 			return nil, err
 		}

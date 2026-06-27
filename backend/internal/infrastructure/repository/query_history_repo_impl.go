@@ -25,10 +25,16 @@ func NewQueryHistoryRepository(pool *pgxpool.Pool) domainrepo.QueryHistoryReposi
 }
 
 func (r *QueryHistoryRepository) Create(ctx context.Context, entry *entity.QueryHistory) (*entity.QueryHistory, error) {
+	source := entry.Source
+	if source == "" {
+		source = entity.QueryHistorySourceGenerator
+	}
+
 	row, err := r.queries.CreateQueryHistory(ctx, sqlcgen.CreateQueryHistoryParams{
 		DatasourceID:          pgUUIDFromOptional(entry.DatasourceID),
 		SqlContent:            entry.SQLContent,
 		NaturalLanguagePrompt: pgTextFromString(entry.NaturalLanguagePrompt),
+		Source:                source,
 		ExecutionTimeMs:       pgInt4FromOptionalInt(entry.ExecutionTimeMs),
 		RowCount:              pgInt4FromOptionalInt(entry.RowCount),
 		Status:                entry.Status,
@@ -85,6 +91,7 @@ func (r *QueryHistoryRepository) toListParams(filter domainrepo.ListQueryHistory
 		Offset:       int32(filter.Offset),
 		DatasourceID: pgUUIDFromOptional(filter.DatasourceID),
 		Status:       pgTextFromString(filter.Status),
+		Source:       pgTextFromString(filter.Source),
 		FromDate:     pgTimestampFromOptional(filter.FromDate),
 		ToDate:       pgTimestampFromOptional(filter.ToDate),
 	}
@@ -94,6 +101,7 @@ func (r *QueryHistoryRepository) toCountParams(filter domainrepo.ListQueryHistor
 	return sqlcgen.CountQueryHistoryParams{
 		DatasourceID: pgUUIDFromOptional(filter.DatasourceID),
 		Status:       pgTextFromString(filter.Status),
+		Source:       pgTextFromString(filter.Source),
 		FromDate:     pgTimestampFromOptional(filter.FromDate),
 		ToDate:       pgTimestampFromOptional(filter.ToDate),
 	}
@@ -110,11 +118,17 @@ func (r *QueryHistoryRepository) toEntity(row sqlcgen.QueryHistory) (*entity.Que
 		return nil, err
 	}
 
+	source := row.Source
+	if source == "" {
+		source = entity.QueryHistorySourceGenerator
+	}
+
 	return &entity.QueryHistory{
 		ID:                    id,
 		DatasourceID:          datasourceID,
 		SQLContent:            row.SqlContent,
 		NaturalLanguagePrompt: textValue(row.NaturalLanguagePrompt, ""),
+		Source:                source,
 		ExecutionTimeMs:       optionalIntFromPG(row.ExecutionTimeMs),
 		RowCount:              optionalIntFromPG(row.RowCount),
 		Status:                row.Status,

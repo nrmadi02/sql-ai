@@ -58,6 +58,7 @@ func parseListQueryHistoryInput(c *fiber.Ctx) (usecase.ListQueryHistoryInput, er
 	}
 
 	input.Status = c.Query("status")
+	input.Source = c.Query("source")
 
 	if raw := c.Query("from_date"); raw != "" {
 		parsed, err := time.Parse(time.RFC3339, raw)

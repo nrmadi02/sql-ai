@@ -74,6 +74,7 @@ type QueryHistory struct {
 	Status                string           `json:"status"`
 	ErrorMessage          pgtype.Text      `json:"error_message"`
 	CreatedAt             pgtype.Timestamp `json:"created_at"`
+	Source                string           `json:"source"`
 }
 
 type SavedQuery struct {
@@ -86,4 +87,27 @@ type SavedQuery struct {
 	GeneratorMessageID pgtype.UUID      `json:"generator_message_id"`
 	CreatedAt          pgtype.Timestamp `json:"created_at"`
 	UpdatedAt          pgtype.Timestamp `json:"updated_at"`
+}
+
+type SqlEditorSession struct {
+	ID           pgtype.UUID      `json:"id"`
+	Name         string           `json:"name"`
+	DatasourceID pgtype.UUID      `json:"datasource_id"`
+	CreatedAt    pgtype.Timestamp `json:"created_at"`
+	UpdatedAt    pgtype.Timestamp `json:"updated_at"`
+}
+
+type SqlEditorTab struct {
+	ID              pgtype.UUID      `json:"id"`
+	SessionID       pgtype.UUID      `json:"session_id"`
+	Name            string           `json:"name"`
+	SqlContent      string           `json:"sql_content"`
+	SortOrder       int32            `json:"sort_order"`
+	LastResult      []byte           `json:"last_result"`
+	ExecutionTimeMs pgtype.Int4      `json:"execution_time_ms"`
+	RowCount        pgtype.Int4      `json:"row_count"`
+	LastStatus      pgtype.Text      `json:"last_status"`
+	ErrorMessage    pgtype.Text      `json:"error_message"`
+	CreatedAt       pgtype.Timestamp `json:"created_at"`
+	UpdatedAt       pgtype.Timestamp `json:"updated_at"`
 }

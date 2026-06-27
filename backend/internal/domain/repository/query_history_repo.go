@@ -11,6 +11,7 @@ import (
 type ListQueryHistoryFilter struct {
 	DatasourceID *uuid.UUID
 	Status       string
+	Source       string
 	FromDate     *time.Time
 	ToDate       *time.Time
 	Limit        int

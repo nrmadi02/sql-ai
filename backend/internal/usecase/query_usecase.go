@@ -14,10 +14,11 @@ import (
 const queryExecutionTimeout = 30 * time.Second
 
 type ExecuteQueryInput struct {
-	SQL           string
-	DatasourceID  uuid.UUID
-	MaxRows       int
-	MessageID     *uuid.UUID
+	SQL          string
+	DatasourceID uuid.UUID
+	MaxRows      int
+	MessageID    *uuid.UUID
+	Source       string
 }
 
 type QueryColumnResult struct {
@@ -74,13 +75,13 @@ func (u *QueryUsecase) Execute(ctx context.Context, input ExecuteQueryInput) (*Q
 
 	if err != nil {
 		u.persistExecutionError(ctx, input.MessageID, preparedSQL, elapsed, err)
-		u.recordHistory(ctx, input.DatasourceID, preparedSQL, input.MessageID, nil, nil, entity.QueryHistoryStatusFailed, TranslateQueryError(err).Error(), elapsed)
+		u.recordHistory(ctx, input.DatasourceID, preparedSQL, input.MessageID, input.Source, nil, nil, entity.QueryHistoryStatusFailed, TranslateQueryError(err).Error(), elapsed)
 		return nil, TranslateQueryError(err)
 	}
 
 	response := toQueryExecutionResult(result, elapsed)
 	u.persistExecutionSuccess(ctx, input.MessageID, preparedSQL, response)
-	u.recordHistory(ctx, input.DatasourceID, preparedSQL, input.MessageID, &response.RowCount, &response.ExecutionTimeMs, entity.QueryHistoryStatusSuccess, "", elapsed)
+	u.recordHistory(ctx, input.DatasourceID, preparedSQL, input.MessageID, input.Source, &response.RowCount, &response.ExecutionTimeMs, entity.QueryHistoryStatusSuccess, "", elapsed)
 	return response, nil
 }
 
@@ -191,6 +192,7 @@ func (u *QueryUsecase) recordHistory(
 	datasourceID uuid.UUID,
 	sql string,
 	messageID *uuid.UUID,
+	source string,
 	rowCount *int,
 	executionTimeMs *int,
 	status string,
@@ -206,11 +208,16 @@ func (u *QueryUsecase) recordHistory(
 		executionTimeMs = &elapsedCopy
 	}
 
+	if source == "" {
+		source = entity.QueryHistorySourceGenerator
+	}
+
 	u.historyUsecase.RecordExecution(
 		ctx,
 		datasourceID,
 		sql,
 		u.resolveNaturalLanguagePrompt(ctx, messageID),
+		source,
 		executionTimeMs,
 		rowCount,
 		status,

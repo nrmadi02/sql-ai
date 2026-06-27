@@ -9,6 +9,9 @@ import (
 const (
 	QueryHistoryStatusSuccess = "success"
 	QueryHistoryStatusFailed  = "failed"
+
+	QueryHistorySourceGenerator = "generator"
+	QueryHistorySourceEditor    = "editor"
 )
 
 type SavedQuery struct {
@@ -28,6 +31,7 @@ type QueryHistory struct {
 	DatasourceID          *uuid.UUID
 	SQLContent            string
 	NaturalLanguagePrompt string
+	Source                string
 	ExecutionTimeMs       *int
 	RowCount              *int
 	Status                string
