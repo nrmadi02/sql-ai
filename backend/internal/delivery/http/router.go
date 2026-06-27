@@ -15,6 +15,7 @@ type RouterConfig struct {
 	QueryHandler        *handler.QueryHandler
 	SavedQueryHandler   *handler.SavedQueryHandler
 	QueryHistoryHandler *handler.QueryHistoryHandler
+	SqlEditorHandler    *handler.SqlEditorHandler
 }
 
 func NewRouter(cfg RouterConfig) *fiber.App {
@@ -74,6 +75,19 @@ func NewRouter(cfg RouterConfig) *fiber.App {
 	queryHistory := api.Group("/query-history")
 	queryHistory.Get("/", cfg.QueryHistoryHandler.List)
 	queryHistory.Get("/:id", cfg.QueryHistoryHandler.GetByID)
+
+	sqlEditor := api.Group("/sql-editor")
+	sqlEditorSessions := sqlEditor.Group("/sessions")
+	sqlEditorSessions.Post("/", cfg.SqlEditorHandler.CreateSession)
+	sqlEditorSessions.Get("/", cfg.SqlEditorHandler.ListSessions)
+	sqlEditorSessions.Get("/:id", cfg.SqlEditorHandler.GetSessionByID)
+	sqlEditorSessions.Put("/:id", cfg.SqlEditorHandler.UpdateSession)
+	sqlEditorSessions.Delete("/:id", cfg.SqlEditorHandler.DeleteSession)
+	sqlEditorSessions.Post("/:id/tabs", cfg.SqlEditorHandler.CreateTab)
+	sqlEditorSessions.Put("/:sessionId/tabs/:tabId", cfg.SqlEditorHandler.UpdateTab)
+	sqlEditorSessions.Delete("/:sessionId/tabs/:tabId", cfg.SqlEditorHandler.DeleteTab)
+	sqlEditorSessions.Post("/:sessionId/tabs/:tabId/run", cfg.SqlEditorHandler.RunTab)
+	sqlEditor.Get("/autocomplete/:datasourceId", cfg.SqlEditorHandler.GetAutocomplete)
 
 	return app
 }

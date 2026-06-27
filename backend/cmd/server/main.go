@@ -53,11 +53,13 @@ func main() {
 	generatorRepo := repository.NewGeneratorRepository(pool)
 	savedQueryRepo := repository.NewSavedQueryRepository(pool)
 	queryHistoryRepo := repository.NewQueryHistoryRepository(pool)
+	sqlEditorRepo := repository.NewSqlEditorRepository(pool)
 	aiGateway := ai.NewGateway()
 	generatorUsecase := usecase.NewGeneratorUsecase(generatorRepo, datasourceRepo, aiProviderRepo, aiGateway)
 	queryHistoryUsecase := usecase.NewQueryHistoryUsecase(queryHistoryRepo)
 	savedQueryUsecase := usecase.NewSavedQueryUsecase(savedQueryRepo)
 	queryUsecase := usecase.NewQueryUsecase(datasourceRepo, generatorRepo, queryHistoryUsecase, adapterRegistry)
+	sqlEditorUsecase := usecase.NewSqlEditorUsecase(sqlEditorRepo, datasourceRepo, queryUsecase)
 
 	datasourceHandler := handler.NewDatasourceHandler(datasourceUsecase)
 	schemaHandler := handler.NewSchemaHandler(schemaUsecase)
@@ -66,6 +68,7 @@ func main() {
 	queryHandler := handler.NewQueryHandler(queryUsecase)
 	savedQueryHandler := handler.NewSavedQueryHandler(savedQueryUsecase)
 	queryHistoryHandler := handler.NewQueryHistoryHandler(queryHistoryUsecase)
+	sqlEditorHandler := handler.NewSqlEditorHandler(sqlEditorUsecase)
 
 	app := deliveryhttp.NewRouter(deliveryhttp.RouterConfig{
 		CORSOrigin:          cfg.CORSOrigin,
@@ -76,6 +79,7 @@ func main() {
 		QueryHandler:        queryHandler,
 		SavedQueryHandler:   savedQueryHandler,
 		QueryHistoryHandler: queryHistoryHandler,
+		SqlEditorHandler:    sqlEditorHandler,
 	})
 
 	go func() {
