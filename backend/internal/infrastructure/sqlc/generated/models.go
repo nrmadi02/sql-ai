@@ -21,30 +21,6 @@ type AiProvider struct {
 	UpdatedAt       pgtype.Timestamp `json:"updated_at"`
 }
 
-type GeneratorMessage struct {
-	ID               pgtype.UUID      `json:"id"`
-	SessionID        pgtype.UUID      `json:"session_id"`
-	Role             string           `json:"role"`
-	Content          string           `json:"content"`
-	GeneratedSql     pgtype.Text      `json:"generated_sql"`
-	EditedSql        pgtype.Text      `json:"edited_sql"`
-	QueryResult      []byte           `json:"query_result"`
-	ExecutionTimeMs  pgtype.Int4      `json:"execution_time_ms"`
-	RowCount         pgtype.Int4      `json:"row_count"`
-	ErrorMessage     pgtype.Text      `json:"error_message"`
-	ReferencedTables []string         `json:"referenced_tables"`
-	CreatedAt        pgtype.Timestamp `json:"created_at"`
-}
-
-type GeneratorSession struct {
-	ID           pgtype.UUID      `json:"id"`
-	Title        pgtype.Text      `json:"title"`
-	DatasourceID pgtype.UUID      `json:"datasource_id"`
-	AiProviderID pgtype.UUID      `json:"ai_provider_id"`
-	CreatedAt    pgtype.Timestamp `json:"created_at"`
-	UpdatedAt    pgtype.Timestamp `json:"updated_at"`
-}
-
 type Datasource struct {
 	ID                pgtype.UUID      `json:"id"`
 	Name              string           `json:"name"`
@@ -63,6 +39,31 @@ type Datasource struct {
 	UpdatedAt         pgtype.Timestamp `json:"updated_at"`
 }
 
+type GeneratorMessage struct {
+	ID               pgtype.UUID      `json:"id"`
+	SessionID        pgtype.UUID      `json:"session_id"`
+	Role             string           `json:"role"`
+	Content          string           `json:"content"`
+	GeneratedSql     pgtype.Text      `json:"generated_sql"`
+	EditedSql        pgtype.Text      `json:"edited_sql"`
+	QueryResult      []byte           `json:"query_result"`
+	ExecutionTimeMs  pgtype.Int4      `json:"execution_time_ms"`
+	RowCount         pgtype.Int4      `json:"row_count"`
+	ErrorMessage     pgtype.Text      `json:"error_message"`
+	ReferencedTables []string         `json:"referenced_tables"`
+	CreatedAt        pgtype.Timestamp `json:"created_at"`
+	AiMetadata       []byte           `json:"ai_metadata"`
+}
+
+type GeneratorSession struct {
+	ID           pgtype.UUID      `json:"id"`
+	Title        pgtype.Text      `json:"title"`
+	DatasourceID pgtype.UUID      `json:"datasource_id"`
+	AiProviderID pgtype.UUID      `json:"ai_provider_id"`
+	CreatedAt    pgtype.Timestamp `json:"created_at"`
+	UpdatedAt    pgtype.Timestamp `json:"updated_at"`
+}
+
 type QueryHistory struct {
 	ID                    pgtype.UUID      `json:"id"`
 	DatasourceID          pgtype.UUID      `json:"datasource_id"`
@@ -76,13 +77,13 @@ type QueryHistory struct {
 }
 
 type SavedQuery struct {
-	ID            pgtype.UUID      `json:"id"`
-	Name          string           `json:"name"`
-	Description   pgtype.Text      `json:"description"`
-	SqlContent    string           `json:"sql_content"`
-	DatasourceID  pgtype.UUID      `json:"datasource_id"`
-	Tags          []string         `json:"tags"`
-	GeneratorMessageID pgtype.UUID `json:"generator_message_id"`
-	CreatedAt     pgtype.Timestamp `json:"created_at"`
-	UpdatedAt     pgtype.Timestamp `json:"updated_at"`
+	ID                 pgtype.UUID      `json:"id"`
+	Name               string           `json:"name"`
+	Description        pgtype.Text      `json:"description"`
+	SqlContent         string           `json:"sql_content"`
+	DatasourceID       pgtype.UUID      `json:"datasource_id"`
+	Tags               []string         `json:"tags"`
+	GeneratorMessageID pgtype.UUID      `json:"generator_message_id"`
+	CreatedAt          pgtype.Timestamp `json:"created_at"`
+	UpdatedAt          pgtype.Timestamp `json:"updated_at"`
 }
