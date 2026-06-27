@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -55,7 +54,7 @@ func (r *DatasourceRepository) Create(ctx context.Context, ds *entity.Datasource
 }
 
 func (r *DatasourceRepository) GetByID(ctx context.Context, id uuid.UUID) (*entity.Datasource, error) {
-	row, err := r.queries.GetDatasource(ctx, pgtype.UUID{Bytes: id, Valid: true})
+	row, err := r.queries.GetDatasource(ctx, pgUUIDFromUUID(id))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, domain.ErrNotFound
@@ -91,7 +90,7 @@ func (r *DatasourceRepository) Update(ctx context.Context, ds *entity.Datasource
 	}
 
 	row, err := r.queries.UpdateDatasource(ctx, sqlcgen.UpdateDatasourceParams{
-		ID:                pgtype.UUID{Bytes: ds.ID, Valid: true},
+		ID:                pgUUIDFromUUID(ds.ID),
 		Name:              ds.Name,
 		DbType:            ds.DBType,
 		Host:              ds.Host,
@@ -114,7 +113,7 @@ func (r *DatasourceRepository) Update(ctx context.Context, ds *entity.Datasource
 }
 
 func (r *DatasourceRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	if err := r.queries.DeleteDatasource(ctx, pgtype.UUID{Bytes: id, Valid: true}); err != nil {
+	if err := r.queries.DeleteDatasource(ctx, pgUUIDFromUUID(id)); err != nil {
 		return fmt.Errorf("delete datasource: %w", err)
 	}
 	return nil
@@ -122,7 +121,7 @@ func (r *DatasourceRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (r *DatasourceRepository) UpdateSchemaCache(ctx context.Context, id uuid.UUID, schema json.RawMessage) error {
 	if err := r.queries.UpdateSchemaCache(ctx, sqlcgen.UpdateSchemaCacheParams{
-		ID:          pgtype.UUID{Bytes: id, Valid: true},
+		ID:          pgUUIDFromUUID(id),
 		SchemaCache: schema,
 	}); err != nil {
 		return fmt.Errorf("update schema cache: %w", err)
@@ -166,37 +165,3 @@ func (r *DatasourceRepository) toEntity(row sqlcgen.Datasource) (*entity.Datasou
 	return ds, nil
 }
 
-func uuidFromPG(value pgtype.UUID) (uuid.UUID, error) {
-	if !value.Valid {
-		return uuid.Nil, fmt.Errorf("invalid uuid")
-	}
-	return uuid.FromBytes(value.Bytes[:])
-}
-
-func textValue(value pgtype.Text, fallback string) string {
-	if value.Valid {
-		return value.String
-	}
-	return fallback
-}
-
-func int32Value(value pgtype.Int4, fallback int32) int32 {
-	if value.Valid {
-		return value.Int32
-	}
-	return fallback
-}
-
-func boolValue(value pgtype.Bool, fallback bool) bool {
-	if value.Valid {
-		return value.Bool
-	}
-	return fallback
-}
-
-func timestampValue(value pgtype.Timestamp) time.Time {
-	if value.Valid {
-		return value.Time
-	}
-	return time.Time{}
-}
