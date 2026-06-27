@@ -16,9 +16,63 @@ export const buttons = {
   addDatasource: "Tambah datasource",
   registerProvider: "Daftarkan provider",
   startGenerator: "Mulai",
+  newSession: "Pertanyaan baru",
+  send: "Kirim",
   cancel: "Batal",
   delete: "Hapus",
   saveChanges: "Simpan perubahan",
+  setDefault: "Jadikan default",
+} as const;
+
+export const query = {
+  runLabel: "Jalankan query",
+  resultTitle: "Hasil query",
+  executionTime: "Waktu eksekusi",
+  rowCount: "Jumlah baris",
+  truncated: "Hasil dipotong ke batas maksimum",
+  emptyResult: "Query berhasil tapi tidak ada baris yang ditampilkan.",
+  columnVisibility: "Kolom",
+  filterPlaceholder: "Filter…",
+  pageSize: "Baris per halaman",
+  showingRows: "Menampilkan",
+  ofTotal: "dari",
+  workspaceTitle: "Workspace query",
+  workspaceDescription:
+    "Edit SQL, jalankan ke datasource aktif, lalu telusuri hasil di tabel.",
+  openWorkspace: "Edit & jalankan",
+  viewResults: "Lihat hasil",
+  running: "Menjalankan query…",
+  waitingResult:
+    "Belum ada hasil. Jalankan query untuk melihat data dari database.",
+  previewMore: "baris lainnya",
+  queryFailed: "Query gagal",
+} as const;
+
+export const generator = {
+  inputPlaceholder:
+    "Tulis pertanyaan tentang datamu. Ketik garis miring lalu nama tabel, misalnya /pesanan.",
+  inputHint:
+    "Sebut tabel dengan garis miring supaya AI tahu konteksnya. Tekan Enter untuk kirim, Shift+Enter untuk baris baru.",
+  generating: "AI sedang menulis respons",
+  emptySession:
+    "Mulai dengan pertanyaan singkat. AI akan merangkai SQL berdasarkan schema datasource aktif.",
+  noSessions: "Belum ada percakapan. Buat pertanyaan baru untuk mulai.",
+  untitledSession: "Percakapan baru",
+  tableMentionLabel: "Tabel dirujuk",
+  sqlLabel: "SQL yang dihasilkan",
+  aiMetaTitle: "Detail AI",
+  aiMetaProvider: "Provider",
+  aiMetaModel: "Model",
+  aiMetaDialect: "Dialek",
+  aiMetaContextTables: "Tabel konteks",
+  aiMetaAvailableTables: "Tabel tersedia",
+  aiMetaHistory: "Riwayat percakapan",
+  aiMetaEstimatedContext: "Estimasi konteks",
+  aiMetaPromptTokens: "Token prompt",
+  aiMetaCompletionTokens: "Token respons",
+  aiMetaTotalTokens: "Total token",
+  aiMetaPendingTokens: "Menghitung token",
+  aiMetaNoContextTables: "Tidak ada tabel detail dikirim",
 } as const;
 
 // Empty states are embedded directly in each page (see app/(app)/*).
@@ -42,6 +96,45 @@ export const errors = {
     "Query berhasil tapi tidak ada data yang cocok. Coba ubah filter atau rentang waktu.",
 } as const;
 
+export const saved = {
+  pageTitle: "Query tersimpan",
+  pageDescription:
+    "Koleksi SQL yang kamu simpan. Buka, jalankan ulang, atau hapus tanpa menulis dari nol.",
+  searchPlaceholder: "Cari nama atau deskripsi…",
+  tagFilterPlaceholder: "Filter tag",
+  allTags: "Semua tag",
+  saveDialogTitle: "Simpan query",
+  saveDialogDescription:
+    "Beri nama agar mudah ditemukan lagi. Tag opsional, pisahkan dengan koma.",
+  nameLabel: "Nama",
+  descriptionLabel: "Deskripsi",
+  tagsLabel: "Tag",
+  tagsHint: "Pisahkan dengan koma, misalnya laporan, penjualan",
+  namePlaceholder: "contoh: Penjualan bulanan",
+  descriptionPlaceholder: "Opsional. Catatan singkat tentang query ini.",
+  tagsPlaceholder: "laporan, penjualan",
+  openQuery: "Buka di editor",
+  deleteConfirm: "Hapus query ini?",
+  noResults: "Tidak ada query yang cocok dengan filter.",
+} as const;
+
+export const history = {
+  pageTitle: "Riwayat query",
+  pageDescription:
+    "Semua query yang pernah dijalankan, lengkap dengan status dan waktu eksekusi.",
+  statusSuccess: "Berhasil",
+  statusFailed: "Gagal",
+  allStatuses: "Semua status",
+  allDatasources: "Semua datasource",
+  openQuery: "Muat ke editor",
+  noResults: "Tidak ada riwayat yang cocok dengan filter.",
+  columnTime: "Waktu",
+  columnSql: "SQL",
+  columnStatus: "Status",
+  columnDuration: "Durasi",
+  columnRows: "Baris",
+} as const;
+
 export const toasts = {
   querySucceeded: "Query berhasil dijalankan",
   querySaved: "Query tersimpan",
@@ -49,6 +142,8 @@ export const toasts = {
   connectionSucceeded: "Koneksi berhasil",
   schemaSynced: "Schema berhasil disinkronkan",
   datasourceDeleted: "Datasource dihapus",
+  providerDeleted: "AI provider dihapus",
+  providerDefaultSet: "Provider default diperbarui",
 } as const;
 
 export const formLabels = {
