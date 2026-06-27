@@ -70,6 +70,7 @@ Connect DB → Baca Schema → Generator + /{tabel} → AI Generate SQL → Edit
 | F9  | **Salin Query**                     | 🟡 High     | Salin SQL ke clipboard dengan satu klik                                                                                            |
 | F10 | **Riwayat Query**                   | 🟡 High     | Daftar semua query yang pernah dijalankan, lengkap dengan timestamp dan status                                                     |
 | F11 | **SQL Editor Manual**               | 🟡 High     | Editor SQL standalone (tanpa AI) dengan autocomplete nama tabel, kolom, dan keyword SQL. Mendukung multi-tab, riwayat, dan simpan. |
+| F11a | **Rename Sesi SQL Editor**         | 🟡 High     | User bisa mengganti nama sesi editor (bukan hanya "Sesi editor baru"). Inline di workspace + daftar sesi.                          |
 
 
 ---
@@ -538,20 +539,27 @@ CREATE TABLE saved_queries (
 
 Riwayat semua query yang pernah dijalankan.
 
+> **Implementasi:** Kolom DB dan field JSON API memakai penamaan Inggris (konsisten dengan sprint 1–5). Nilai `source`: `'generator'` (dari AI generator) atau `'editor'` (dari SQL Editor manual). Nilai `status`: `'success'` atau `'failed'`.
+
 ```sql
 CREATE TABLE query_history (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     datasource_id UUID REFERENCES datasources(id) ON DELETE SET NULL,
-    konten_sql TEXT NOT NULL,
-    prompt_bahasa_natural TEXT,           -- prompt asli user
-    sumber VARCHAR(20) NOT NULL DEFAULT 'generator',  -- 'generator' atau 'editor'
-    waktu_eksekusi_ms INTEGER,
-    jumlah_baris INTEGER,
-    status VARCHAR(20) NOT NULL,          -- 'berhasil', 'gagal'
-    pesan_error TEXT,
-    dibuat_pada TIMESTAMP DEFAULT NOW()
+    sql_content TEXT NOT NULL,
+    natural_language_prompt TEXT,         -- prompt asli user (null dari editor)
+    source VARCHAR(20) NOT NULL DEFAULT 'generator',  -- 'generator' atau 'editor'
+    execution_time_ms INTEGER,
+    row_count INTEGER,
+    status VARCHAR(20) NOT NULL,          -- 'success', 'failed'
+    error_message TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
 );
+
+CREATE INDEX idx_query_history_datasource ON query_history(datasource_id, created_at DESC);
+CREATE INDEX idx_query_history_source ON query_history(source, created_at DESC);
 ```
+
+> **Migrasi:** Tabel awal di `000005_init_query_history`; kolom `source` ditambahkan di `000008_add_query_history_source`.
 
 
 
@@ -559,13 +567,15 @@ CREATE TABLE query_history (
 
 Menyimpan sesi SQL Editor manual (tanpa AI). Setiap sesi berisi satu atau lebih tab editor.
 
+> **Implementasi:** Migrasi `000007_init_sql_editor`. Saat `POST /sql-editor/sessions`, backend otomatis membuat satu tab default (`Query 1`).
+
 ```sql
 CREATE TABLE sql_editor_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    nama VARCHAR(255) NOT NULL DEFAULT 'Sesi Baru',
+    name VARCHAR(255) NOT NULL DEFAULT 'New Session',
     datasource_id UUID REFERENCES datasources(id) ON DELETE SET NULL,
-    dibuat_pada TIMESTAMP DEFAULT NOW(),
-    diperbarui_pada TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 ```
 
@@ -579,16 +589,16 @@ Menyimpan tab individu dalam sesi SQL Editor. Setiap tab berisi konten SQL, hasi
 CREATE TABLE sql_editor_tabs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     session_id UUID NOT NULL REFERENCES sql_editor_sessions(id) ON DELETE CASCADE,
-    nama VARCHAR(255) NOT NULL DEFAULT 'Query 1',
-    konten_sql TEXT NOT NULL DEFAULT '',
-    urutan INTEGER NOT NULL DEFAULT 0,         -- urutan tab dalam sesi
-    hasil_terakhir JSONB,                      -- hasil eksekusi terakhir (kolom + baris)
-    waktu_eksekusi_ms INTEGER,                 -- waktu eksekusi terakhir
-    jumlah_baris INTEGER,                      -- jumlah baris hasil terakhir
-    status_terakhir VARCHAR(20),               -- 'berhasil', 'gagal', null (belum dijalankan)
-    pesan_error TEXT,                          -- pesan error terakhir
-    dibuat_pada TIMESTAMP DEFAULT NOW(),
-    diperbarui_pada TIMESTAMP DEFAULT NOW()
+    name VARCHAR(255) NOT NULL DEFAULT 'Query 1',
+    sql_content TEXT NOT NULL DEFAULT '',
+    sort_order INTEGER NOT NULL DEFAULT 0,     -- urutan tab dalam sesi
+    last_result JSONB,                         -- hasil eksekusi terakhir (kolom + baris)
+    execution_time_ms INTEGER,                 -- waktu eksekusi terakhir
+    row_count INTEGER,                         -- jumlah baris hasil terakhir
+    last_status VARCHAR(20),                   -- 'success', 'failed', null (belum dijalankan)
+    error_message TEXT,                        -- pesan error terakhir
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 ```
 
@@ -597,12 +607,12 @@ CREATE TABLE sql_editor_tabs (
 ### 5.9 Index
 
 ```sql
-CREATE INDEX idx_generator_messages_session ON generator_messages(session_id, dibuat_pada);
-CREATE INDEX idx_query_history_datasource ON query_history(datasource_id, dibuat_pada DESC);
-CREATE INDEX idx_query_history_sumber ON query_history(sumber, dibuat_pada DESC);
+CREATE INDEX idx_generator_messages_session ON generator_messages(session_id, created_at);
+CREATE INDEX idx_query_history_datasource ON query_history(datasource_id, created_at DESC);
+CREATE INDEX idx_query_history_source ON query_history(source, created_at DESC);
 CREATE INDEX idx_saved_queries_datasource ON saved_queries(datasource_id);
-CREATE INDEX idx_saved_queries_tag ON saved_queries USING GIN(tag);
-CREATE INDEX idx_sql_editor_tabs_session ON sql_editor_tabs(session_id, urutan);
+CREATE INDEX idx_saved_queries_tag ON saved_queries USING GIN(tags);
+CREATE INDEX idx_sql_editor_tabs_session ON sql_editor_tabs(session_id, sort_order);
 CREATE INDEX idx_sql_editor_sessions_datasource ON sql_editor_sessions(datasource_id);
 ```
 
@@ -895,7 +905,7 @@ Endpoint untuk mengelola sesi SQL Editor manual (tanpa AI). Editor ini memungkin
 ```json
 POST /api/v1/sql-editor/sessions
 {
-  "nama": "Analisis Penjualan",
+  "name": "Analisis Penjualan",
   "datasource_id": "550e8400-..."
 }
 ```
@@ -905,27 +915,27 @@ POST /api/v1/sql-editor/sessions
 ```json
 {
   "id": "660e8400-...",
-  "nama": "Analisis Penjualan",
+  "name": "Analisis Penjualan",
   "datasource_id": "550e8400-...",
   "tabs": [
     {
       "id": "770e8400-...",
-      "nama": "Query 1",
-      "konten_sql": "SELECT * FROM pesanan LIMIT 10;",
-      "urutan": 0,
-      "status_terakhir": "berhasil",
-      "waktu_eksekusi_ms": 23,
-      "jumlah_baris": 10
+      "name": "Query 1",
+      "sql_content": "SELECT * FROM pesanan LIMIT 10;",
+      "sort_order": 0,
+      "last_status": "success",
+      "execution_time_ms": 23,
+      "row_count": 10
     },
     {
       "id": "880e8400-...",
-      "nama": "Query 2",
-      "konten_sql": "",
-      "urutan": 1,
-      "status_terakhir": null
+      "name": "Query 2",
+      "sql_content": "",
+      "sort_order": 1,
+      "last_status": null
     }
   ],
-  "dibuat_pada": "2026-06-27T10:00:00Z"
+  "created_at": "2026-06-27T10:00:00Z"
 }
 ```
 
@@ -934,11 +944,11 @@ POST /api/v1/sql-editor/sessions
 ```json
 POST /api/v1/sql-editor/sessions/:sessionId/tabs/:tabId/run
 {
-  "maks_baris": 1000
+  "max_rows": 1000
 }
 ```
 
-> **Catatan:** Endpoint `run` secara internal memanggil logika yang sama dengan `POST /query/execute` (termasuk read-only enforcement, query guard, timeout). Hasil eksekusi otomatis tersimpan ke `query_history` dengan `sumber = 'editor'` dan ke `sql_editor_tabs` (hasil_terakhir).
+> **Catatan:** Endpoint `run` secara internal memanggil logika yang sama dengan `POST /query/execute` (termasuk read-only enforcement, query guard, timeout). Hasil eksekusi otomatis tersimpan ke `query_history` dengan `source = 'editor'` dan ke `sql_editor_tabs` (`last_result`, `execution_time_ms`, `last_status`). Filter riwayat editor: `GET /query-history?source=editor`.
 
 **Contoh Response — Autocomplete Data:**
 
@@ -948,26 +958,28 @@ GET /api/v1/sql-editor/autocomplete/550e8400-...
   "dialect": "postgresql",
   "tables": [
     {
-      "nama": "pesanan",
-      "kolom": [
-        {"nama": "id", "tipe": "bigint"},
-        {"nama": "pelanggan_id", "tipe": "bigint"},
-        {"nama": "total", "tipe": "decimal(10,2)"},
-        {"nama": "status", "tipe": "varchar(50)"},
-        {"nama": "dibuat_pada", "tipe": "timestamp"}
+      "name": "pesanan",
+      "columns": [
+        {"name": "id", "type": "bigint"},
+        {"name": "pelanggan_id", "type": "bigint"},
+        {"name": "total", "type": "decimal(10,2)"},
+        {"name": "status", "type": "varchar(50)"},
+        {"name": "created_at", "type": "timestamp"}
       ]
     },
     {
-      "nama": "pelanggan",
-      "kolom": [
-        {"nama": "id", "tipe": "bigint"},
-        {"nama": "nama", "tipe": "varchar(255)"},
-        {"nama": "email", "tipe": "varchar(255)"}
+      "name": "pelanggan",
+      "columns": [
+        {"name": "id", "type": "bigint"},
+        {"name": "name", "type": "varchar(255)"},
+        {"name": "email", "type": "varchar(255)"}
       ]
     }
   ]
 }
 ```
+
+> **Catatan:** Autocomplete memerlukan schema cache datasource (`POST /datasources/:id/sync`). Keyword dan fungsi SQL ditangani di frontend (CodeMirror), bukan endpoint ini.
 
 
 ---
@@ -1245,8 +1257,12 @@ sql-ai/
 │   │   ├── 000004_init_saved_queries.down.sql
 │   │   ├── 000005_init_query_history.up.sql
 │   │   ├── 000005_init_query_history.down.sql
-│   │   ├── 000006_init_sql_editor.up.sql
-│   │   └── 000006_init_sql_editor.down.sql
+│   │   ├── 000006_generator_message_ai_metadata.up.sql
+│   │   ├── 000006_generator_message_ai_metadata.down.sql
+│   │   ├── 000007_init_sql_editor.up.sql
+│   │   ├── 000007_init_sql_editor.down.sql
+│   │   ├── 000008_add_query_history_source.up.sql
+│   │   └── 000008_add_query_history_source.down.sql
 │   │
 │   │
 │   ├── sqlc.yaml                          # Konfigurasi sqlc
@@ -2000,6 +2016,8 @@ const dialect = datasource.tipe === "postgresql" ? PostgreSQL : MySQL;
 
 ### Sprint 6 — SQL Editor Manual (1.5 minggu)
 
+> **Status:** ✅ Backend selesai (13/13 task) · Frontend belum dimulai (0/26 task)
+>
 > **Tujuan:** User bisa menulis dan menjalankan query SQL secara manual tanpa AI, dengan editor yang mendukung autocomplete nama tabel, kolom, dan keyword SQL. Mendukung multi-tab, riwayat, dan simpan query.
 
 
@@ -2025,6 +2043,13 @@ const dialect = datasource.tipe === "postgresql" ? PostgreSQL : MySQL;
    - Tab auto-save (debounce 1 detik setelah user berhenti mengetik)
    - Keyboard shortcut: `Ctrl+T` (tab baru), `Ctrl+W` (tutup tab), `Ctrl+Tab` (ganti tab)
 
+2a. **Penamaan Sesi Editor**
+   - Setiap sesi SQL Editor memiliki nama yang bisa disesuaikan user (mis. "Analisis users", "Laporan harian")
+   - Default saat dibuat: "Sesi editor baru" — user dapat mengganti kapan saja
+   - Rename inline di workspace (double-click atau ikon edit di header sesi)
+   - Rename juga tersedia di panel daftar sesi (ikon edit saat hover)
+   - Nama tersimpan via `PUT /api/v1/sql-editor/sessions/:id` dan tampil di daftar sesi
+
 3. **Schema Browser Sidebar**
    - Navigasi schema database dalam tree view: Database → Tabel → Kolom
    - Klik nama tabel → insert ke editor di posisi kursor
@@ -2040,7 +2065,7 @@ const dialect = datasource.tipe === "postgresql" ? PostgreSQL : MySQL;
    - Error ditampilkan inline di bawah editor dengan highlight baris error
 
 5. **Integrasi Riwayat**
-   - Semua query yang dijalankan dari editor tersimpan di `query_history` dengan `sumber = 'editor'`
+   - Semua query yang dijalankan dari editor tersimpan di `query_history` dengan `source = 'editor'`
    - Panel riwayat di samping editor — klik untuk muat ulang ke tab aktif
    - Filter riwayat: berdasarkan waktu, status (berhasil/gagal), pencarian teks
 
@@ -2061,23 +2086,25 @@ const dialect = datasource.tipe === "postgresql" ? PostgreSQL : MySQL;
 
 
 
-#### Backend (kerjakan dulu)
+#### Backend (kerjakan dulu) ✅ Selesai
 
 ```
-🔴 [BE] [ ] Tulis migration SQL (000006_init_sql_editor.up.sql + down.sql)
-🔴 [BE] [ ] Jalankan migrasi (make migrate-up)
-🔴 [BE] [ ] Tulis sqlc queries untuk sql_editor_sessions + sql_editor_tabs
-🔴 [BE] [ ] Generate code (make sqlc-generate)
-🔴 [BE] [ ] Implementasi domain — entity SqlEditorSession, SqlEditorTab + repository interface
-🔴 [BE] [ ] Implementasi infrastructure — sql_editor_repo_impl.go (menggunakan sqlc)
-🟡 [BE] [ ] Implementasi usecase — SqlEditorUsecase (CRUD sesi, CRUD tab, eksekusi query)
-🟡 [BE] [ ] Delivery — SqlEditorHandler (CRUD sessions, CRUD tabs, run)
-🟡 [BE] [ ] Endpoint GET /sql-editor/autocomplete/:datasourceId — ambil data schema untuk autocomplete
-🟡 [BE] [ ] Tambah field `sumber` ke query_history (migrasi + update sqlc query)
-🟡 [BE] [ ] Auto-save hasil eksekusi ke sql_editor_tabs (hasil_terakhir, waktu_eksekusi_ms, status)
-🟢 [BE] [ ] Auto-simpan ke query_history dengan sumber='editor' saat query dijalankan dari editor
-🟢 [BE] [ ] Unit test SqlEditorUsecase (make test)
+🔴 [BE] [x] Tulis migration SQL (000007_init_sql_editor + 000008_add_query_history_source)
+🔴 [BE] [x] Jalankan migrasi (make migrate-up)
+🔴 [BE] [x] Tulis sqlc queries untuk sql_editor_sessions + sql_editor_tabs
+🔴 [BE] [x] Generate code (make sqlc-generate)
+🔴 [BE] [x] Implementasi domain — entity SqlEditorSession, SqlEditorTab + repository interface
+🔴 [BE] [x] Implementasi infrastructure — sql_editor_repo_impl.go (menggunakan sqlc)
+🟡 [BE] [x] Implementasi usecase — SqlEditorUsecase (CRUD sesi, CRUD tab, eksekusi query)
+🟡 [BE] [x] Delivery — SqlEditorHandler (CRUD sessions, CRUD tabs, run)
+🟡 [BE] [x] Endpoint GET /sql-editor/autocomplete/:datasourceId — ambil data schema untuk autocomplete
+🟡 [BE] [x] Tambah field `source` ke query_history (migrasi 000008 + update sqlc query)
+🟡 [BE] [x] Auto-save hasil eksekusi ke sql_editor_tabs (last_result, execution_time_ms, last_status)
+🟢 [BE] [x] Auto-simpan ke query_history dengan source='editor' saat query dijalankan dari editor
+🟢 [BE] [x] Unit test SqlEditorUsecase (make test)
 ```
+
+> **Catatan migrasi:** `000006` sudah dipakai `generator_message_ai_metadata`. SQL Editor memakai `000007`; kolom `source` di `query_history` memakai `000008`.
 
 
 
@@ -2099,11 +2126,12 @@ const dialect = datasource.tipe === "postgresql" ? PostgreSQL : MySQL;
 🟡 [FE] [ ] SqlEditorSidebar — schema browser tree view (tabel → kolom) dengan ikon tipe data
 🟡 [FE] [ ] SqlEditorSidebar — klik nama tabel/kolom → insert di posisi kursor
 🟡 [FE] [ ] SqlEditorSidebar — pencarian cepat tabel/kolom
-🟡 [FE] [ ] SqlEditorHistory — panel riwayat query dari editor (filter sumber='editor')
+🟡 [FE] [ ] SqlEditorHistory — panel riwayat query dari editor (filter `?source=editor`)
 🟡 [FE] [ ] SqlEditorHistory — klik riwayat → muat ke tab aktif
 🟡 [FE] [ ] Integrasi simpan query — dialog simpan (nama, deskripsi, tag) → POST /saved-queries
 🟡 [FE] [ ] Tab auto-save — debounce PUT /tabs setiap 1 detik setelah user berhenti mengetik
-🟡 [FE] [ ] Daftar sesi editor di sidebar navigasi (buat baru, pilih, hapus)
+🟡 [FE] [x] Daftar sesi editor di sidebar navigasi (buat baru, pilih, hapus)
+🟡 [FE] [x] Rename sesi editor — inline di workspace (double-click / ikon edit) + daftar sesi
 🟢 [FE] [ ] Format SQL otomatis (prettify) — tombol + Ctrl+Shift+F
 🟢 [FE] [ ] Keyboard shortcuts — Ctrl+T (tab baru), Ctrl+W (tutup), Ctrl+Tab (ganti tab)
 🟢 [FE] [ ] Error handling — highlight baris error di editor + pesan error inline
@@ -2181,7 +2209,7 @@ cd frontend && npm run lint && npm run type-check
 | 14  | Buka SQL Editor manual                     | Editor muncul dengan tab kosong siap digunakan             |
 | 15  | Ketik SQL di editor manual                 | Autocomplete muncul: nama tabel, kolom, keyword SQL        |
 | 16  | Ketik nama tabel diikuti titik             | Autocomplete muncul: daftar kolom dari tabel tersebut      |
-| 17  | Jalankan query dari editor manual          | Hasil tampil di tabel, tersimpan di riwayat (sumber=editor)|
+| 17  | Jalankan query dari editor manual          | Hasil tampil di tabel, tersimpan di riwayat (`source=editor`)|
 | 18  | Buat multi-tab di editor                   | Tab baru terbuka, konten terpisah per tab                  |
 | 19  | Auto-save tab editor                       | Konten tersimpan otomatis, muncul kembali saat reload      |
 | 20  | Simpan query dari editor                   | Query tersimpan, muncul di halaman Tersimpan               |
@@ -2189,6 +2217,7 @@ cd frontend && npm run lint && npm run type-check
 | 22  | Lihat riwayat query editor                 | Riwayat terfilter menampilkan hanya query dari editor      |
 | 23  | Jalankan sebagian SQL (highlight + run)    | Hanya bagian SQL yang di-highlight yang dieksekusi          |
 | 24  | Format SQL otomatis                        | SQL di-prettify dengan indentasi yang rapi                 |
+| 25  | Ganti nama sesi SQL Editor                 | Nama sesi tersimpan, tampil di header workspace & daftar sesi |
 
 
 ---
@@ -2210,6 +2239,7 @@ cd frontend && npm run lint && npm run type-check
 | N2  | **Visualisasi Adaptif**        | User bilang "ubah ke pie chart per kategori" → AI tulis ulang query agar output sesuai format grafik                                      | 🔴 Tinggi    |
 | N3  | **Memori Konteks Generator**   | AI ingat percakapan sebelumnya dalam sesi, bisa perbaiki query secara iteratif                                                            | 🟡 Sedang    |
 | N4  | **Preview Tabel di Generator** | Saat user ketik `/{tabel}`, tampilkan popup preview (kolom + sampel 5 baris)                                                              | 🟢 Rendah    |
+| N4a | **Peringatan AI Hallucination**| Tampilkan warning visual di setiap respons AI: *"Query ini di-generate AI, pastikan hasilnya sesuai ekspektasi sebelum digunakan"*. AI bisa generate SQL yang syntactically valid tapi logically salah (salah JOIN, salah aggregate). Peringatan ini membangun kebiasaan user untuk selalu verifikasi hasil. | 🟢 Rendah    |
 
 
 
@@ -2219,10 +2249,12 @@ cd frontend && npm run lint && npm run type-check
 
 | #   | Fitur                    | Deskripsi                                                                                                                | Kompleksitas |
 | --- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ | ------------ |
-| N5  | **Mesin Aturan**         | User tentukan aturan: "jangan query tanpa WHERE", "maks 10rb baris", "tabel `gaji` dibatasi". Validasi sebelum eksekusi. | 🟡 Sedang    |
-| N6  | **Keamanan Level Baris** | Batasi hasil query berdasarkan peran user (misal: sales hanya lihat region mereka)                                       | 🔴 Tinggi    |
-| N7  | **Log Audit**            | Catat siapa query apa, kapan, dari datasource mana                                                                       | 🟢 Rendah    |
-| N8  | **Autentikasi User**     | Sistem login, akses berbasis peran (admin, viewer, editor)                                                               | 🟡 Sedang    |
+| N5  | **Mesin Aturan**               | User tentukan aturan: "jangan query tanpa WHERE", "maks 10rb baris", "tabel `gaji` dibatasi". Validasi sebelum eksekusi. | 🟡 Sedang    |
+| N6  | **Keamanan Level Baris**       | Batasi hasil query berdasarkan peran user (misal: sales hanya lihat region mereka)                                       | 🔴 Tinggi    |
+| N7  | **Log Audit**                  | Catat siapa query apa, kapan, dari datasource mana. ⚠️ *Prioritas dinaikkan — wajib ada sebelum deploy ke tim, karena produk ini memberi akses langsung ke database.* | 🟡 Sedang    |
+| N8  | **Autentikasi User**           | Sistem login, akses berbasis peran (admin, viewer, editor). ⚠️ *Prioritas dinaikkan — tanpa auth, produk tidak bisa di-deploy ke tim manapun. Implementasikan paling awal di fase ini (minimal session-based login).* | 🔴 Tinggi    |
+| N8a | **Allowlist Tabel**            | User/admin bisa menentukan tabel mana saja yang boleh di-query. Tabel sensitif (misal: `gaji`, `password_reset`, `audit_log`) bisa di-exclude dari schema yang dikirim ke AI dan dari eksekusi query. Lapisan keamanan tambahan di atas read-only enforcement. | 🟡 Sedang    |
+| N8b | **Rekomendasi Read-Replica**   | Panduan dan validasi agar user menyambungkan datasource ke **read-replica** (bukan primary DB). Tampilkan warning jika terdeteksi koneksi ke primary/writable instance. Mencegah risiko beban query ad-hoc memengaruhi performa database produksi. | 🟢 Rendah    |
 
 
 
@@ -2274,6 +2306,44 @@ cd frontend && npm run lint && npm run type-check
 | N21 | **Penjelasan Bahasa Natural** | Setelah jalankan query, AI jelaskan hasilnya dalam bahasa natural untuk stakeholder            | 🟡 Sedang    |
 | N22 | **Perbaikan Otomatis Error**  | Jika query gagal, AI otomatis coba perbaiki dan sarankan fix                                   | 🟡 Sedang    |
 
+
+---
+
+
+
+### Rekomendasi Prioritas Implementasi
+
+> **Catatan:** Berdasarkan analisis risiko dan dampak produk, berikut urutan prioritas yang direkomendasikan untuk implementasi post-MVP. Produk ini memberi akses langsung ke database — sehingga keamanan harus menjadi prioritas utama sebelum fitur-fitur enhancement.
+
+
+
+**🔴 Prioritas 1 — Wajib sebelum deploy ke tim/user lain:**
+
+| #   | Item                          | Fase Asal | Alasan                                                                                     |
+| --- | ----------------------------- | --------- | ------------------------------------------------------------------------------------------ |
+| N8  | Autentikasi User              | Fase 3    | Tanpa auth, produk tidak bisa digunakan lebih dari 1 orang. Minimal session-based login.   |
+| N7  | Log Audit                     | Fase 3    | Produk memberi akses langsung ke database — wajib ada catatan siapa query apa dan kapan.   |
+| N8a | Allowlist Tabel               | Fase 3    | Mencegah akses ke tabel sensitif. Lapisan keamanan kritis.                                 |
+| N4a | Peringatan AI Hallucination   | Fase 2    | Effort rendah, dampak tinggi. Mencegah user mempercayai hasil AI secara buta.              |
+
+
+
+**🟡 Prioritas 2 — Setelah keamanan dasar terpenuhi:**
+
+| #   | Item                          | Fase Asal | Alasan                                                                                     |
+| --- | ----------------------------- | --------- | ------------------------------------------------------------------------------------------ |
+| N1  | Visualisasi Query             | Fase 2    | Game-changer untuk stakeholder non-teknis. Grafik >> tabel angka.                          |
+| N22 | Perbaikan Otomatis Error      | Fase 7    | Mengurangi frustrasi user saat query gagal. Meningkatkan retensi.                          |
+| N21 | Penjelasan Bahasa Natural     | Fase 7    | Stakeholder non-teknis butuh narasi, bukan hanya tabel data.                               |
+| N3  | Memori Konteks Generator      | Fase 2    | Membuat AI terasa "pintar" — bisa iterasi dan perbaiki query dalam percakapan.              |
+
+
+
+**🟢 Prioritas 3 — Nice-to-have, kerjakan berdasarkan feedback user:**
+
+Sisa fitur di Fase 4–6 dikerjakan berdasarkan feedback user aktual. Hindari feature creep sebelum MVP divalidasi oleh pengguna nyata.
+
+> **Prinsip:** *Ship early, validate with real users, then iterate.* Jangan bangun Fase 4–7 sebelum tahu apakah Fase 2–3 sudah menjawab kebutuhan user.
 
 ---
 
