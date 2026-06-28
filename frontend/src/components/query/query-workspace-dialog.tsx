@@ -67,8 +67,8 @@ function QueryWorkspaceDialog({
       <DialogContent
         showCloseButton
         className={cn(
-          "flex h-[min(92vh,860px)] max-w-[min(96vw,1120px)]! flex-col gap-0 overflow-hidden p-0",
-          "top-[50%] left-[50%] translate-x-[-50%] translate-y-[-50%]",
+          "flex max-h-[min(94vh,900px)] min-h-0 max-w-[min(96vw,1120px)]! flex-col gap-0 overflow-hidden p-0",
+          "top-[50%] left-[50%] h-[min(94vh,900px)] translate-x-[-50%] translate-y-[-50%]",
         )}
       >
         <DialogHeader className="shrink-0 border-b border-border/60 px-6 py-4">
@@ -91,14 +91,14 @@ function QueryWorkspaceDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           <div className="shrink-0 border-b border-border/60">
             <QueryEditor
               value={sql}
               dbType={dbType}
               datasourceId={datasourceId}
               onChange={onSqlChange}
-              minHeight="200px"
+              minHeight="140px"
               className="rounded-none border-0"
             />
           </div>
@@ -121,7 +121,7 @@ function QueryWorkspaceDialog({
             truncated={result?.truncated}
           />
 
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-muted/10">
+          <div className="flex min-h-[min(48vh,420px)] flex-1 flex-col bg-muted/10">
             {isRunning ? (
               <div className="flex min-h-0 flex-1 flex-col">
                 <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-4 py-3 text-muted-foreground text-xs">
@@ -131,7 +131,11 @@ function QueryWorkspaceDialog({
                 <QueryResultSkeleton />
               </div>
             ) : result ? (
-              <QueryResult result={result} className="min-h-0 flex-1" />
+              <QueryResult
+                result={result}
+                className="min-h-0 flex-1"
+                generatorMessageId={generatorMessageId}
+              />
             ) : (
               <div className="flex flex-1 items-center justify-center px-6 py-10">
                 <p className="max-w-sm text-center text-muted-foreground text-sm leading-relaxed">

@@ -187,7 +187,7 @@ function SqlEditorWorkspace({
                   </p>
                 ) : null}
 
-                <div className="min-h-0 flex-1 overflow-hidden">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                   {workspace.isRunning ? (
                     <div className="flex h-full min-h-0 flex-col">
                       <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-4 py-3 text-muted-foreground text-xs">
@@ -200,6 +200,7 @@ function SqlEditorWorkspace({
                     <QueryResult
                       result={workspace.result}
                       className="h-full min-h-0"
+                      sqlEditorTabId={workspace.activeTabId ?? undefined}
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center px-6 py-10">

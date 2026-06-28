@@ -46,6 +46,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { ChartPanel } from "@/components/chart/chart-panel";
 import { query } from "@/lib/microcopy";
 import { formatCellValue, rowsToRecords } from "@/lib/query-utils";
 import type { QueryColumn, QueryExecutionResponse } from "@/lib/types";
@@ -54,11 +55,17 @@ import { cn } from "@/lib/utils";
 type QueryResultProps = {
   result: QueryExecutionResponse;
   className?: string;
+  generatorMessageId?: string;
+  sqlEditorTabId?: string;
+  savedQueryId?: string;
 };
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
 
-function QueryResultTable({ result, className }: QueryResultProps) {
+function QueryResultTable({
+  result,
+  className,
+}: Pick<QueryResultProps, "result" | "className">) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -333,4 +340,25 @@ function QueryResultTable({ result, className }: QueryResultProps) {
   );
 }
 
-export { QueryResultTable as QueryResult };
+function QueryResult({
+  result,
+  className,
+  generatorMessageId,
+  sqlEditorTabId,
+  savedQueryId,
+}: QueryResultProps) {
+  return (
+    <ChartPanel
+      result={result}
+      className={className}
+      generatorMessageId={generatorMessageId}
+      sqlEditorTabId={sqlEditorTabId}
+      savedQueryId={savedQueryId}
+      tableView={
+        <QueryResultTable result={result} className="min-h-0 flex-1" />
+      }
+    />
+  );
+}
+
+export { QueryResult, QueryResultTable };
