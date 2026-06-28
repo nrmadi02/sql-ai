@@ -21,6 +21,20 @@ type AiProvider struct {
 	UpdatedAt       pgtype.Timestamp `json:"updated_at"`
 }
 
+type ChartConfig struct {
+	ID                 pgtype.UUID      `json:"id"`
+	SavedQueryID       pgtype.UUID      `json:"saved_query_id"`
+	GeneratorMessageID pgtype.UUID      `json:"generator_message_id"`
+	SqlEditorTabID     pgtype.UUID      `json:"sql_editor_tab_id"`
+	ChartType          string           `json:"chart_type"`
+	XAxisColumn        string           `json:"x_axis_column"`
+	YAxisColumns       []string         `json:"y_axis_columns"`
+	CategoryColumn     pgtype.Text      `json:"category_column"`
+	Config             []byte           `json:"config"`
+	CreatedAt          pgtype.Timestamp `json:"created_at"`
+	UpdatedAt          pgtype.Timestamp `json:"updated_at"`
+}
+
 type Datasource struct {
 	ID                pgtype.UUID      `json:"id"`
 	Name              string           `json:"name"`
@@ -56,12 +70,13 @@ type GeneratorMessage struct {
 }
 
 type GeneratorSession struct {
-	ID           pgtype.UUID      `json:"id"`
-	Title        pgtype.Text      `json:"title"`
-	DatasourceID pgtype.UUID      `json:"datasource_id"`
-	AiProviderID pgtype.UUID      `json:"ai_provider_id"`
-	CreatedAt    pgtype.Timestamp `json:"created_at"`
-	UpdatedAt    pgtype.Timestamp `json:"updated_at"`
+	ID             pgtype.UUID      `json:"id"`
+	Title          pgtype.Text      `json:"title"`
+	DatasourceID   pgtype.UUID      `json:"datasource_id"`
+	AiProviderID   pgtype.UUID      `json:"ai_provider_id"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
+	ContextSummary pgtype.Text      `json:"context_summary"`
 }
 
 type QueryHistory struct {

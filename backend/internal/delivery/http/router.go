@@ -16,6 +16,7 @@ type RouterConfig struct {
 	SavedQueryHandler   *handler.SavedQueryHandler
 	QueryHistoryHandler *handler.QueryHistoryHandler
 	SqlEditorHandler    *handler.SqlEditorHandler
+	ChartHandler        *handler.ChartHandler
 }
 
 func NewRouter(cfg RouterConfig) *fiber.App {
@@ -88,6 +89,13 @@ func NewRouter(cfg RouterConfig) *fiber.App {
 	sqlEditorSessions.Delete("/:sessionId/tabs/:tabId", cfg.SqlEditorHandler.DeleteTab)
 	sqlEditorSessions.Post("/:sessionId/tabs/:tabId/run", cfg.SqlEditorHandler.RunTab)
 	sqlEditor.Get("/autocomplete/:datasourceId", cfg.SqlEditorHandler.GetAutocomplete)
+
+	charts := api.Group("/charts")
+	charts.Post("/", cfg.ChartHandler.Create)
+	charts.Get("/", cfg.ChartHandler.List)
+	charts.Get("/:id", cfg.ChartHandler.GetByID)
+	charts.Put("/:id", cfg.ChartHandler.Update)
+	charts.Delete("/:id", cfg.ChartHandler.Delete)
 
 	return app
 }

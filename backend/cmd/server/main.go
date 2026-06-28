@@ -54,12 +54,14 @@ func main() {
 	savedQueryRepo := repository.NewSavedQueryRepository(pool)
 	queryHistoryRepo := repository.NewQueryHistoryRepository(pool)
 	sqlEditorRepo := repository.NewSqlEditorRepository(pool)
+	chartConfigRepo := repository.NewChartConfigRepository(pool)
 	aiGateway := ai.NewGateway()
 	generatorUsecase := usecase.NewGeneratorUsecase(generatorRepo, datasourceRepo, aiProviderRepo, aiGateway)
 	queryHistoryUsecase := usecase.NewQueryHistoryUsecase(queryHistoryRepo)
 	savedQueryUsecase := usecase.NewSavedQueryUsecase(savedQueryRepo)
 	queryUsecase := usecase.NewQueryUsecase(datasourceRepo, generatorRepo, queryHistoryUsecase, adapterRegistry)
 	sqlEditorUsecase := usecase.NewSqlEditorUsecase(sqlEditorRepo, datasourceRepo, queryUsecase)
+	chartUsecase := usecase.NewChartUsecase(chartConfigRepo)
 
 	datasourceHandler := handler.NewDatasourceHandler(datasourceUsecase)
 	schemaHandler := handler.NewSchemaHandler(schemaUsecase)
@@ -69,6 +71,7 @@ func main() {
 	savedQueryHandler := handler.NewSavedQueryHandler(savedQueryUsecase)
 	queryHistoryHandler := handler.NewQueryHistoryHandler(queryHistoryUsecase)
 	sqlEditorHandler := handler.NewSqlEditorHandler(sqlEditorUsecase)
+	chartHandler := handler.NewChartHandler(chartUsecase)
 
 	app := deliveryhttp.NewRouter(deliveryhttp.RouterConfig{
 		CORSOrigin:          cfg.CORSOrigin,
@@ -80,11 +83,11 @@ func main() {
 		SavedQueryHandler:   savedQueryHandler,
 		QueryHistoryHandler: queryHistoryHandler,
 		SqlEditorHandler:    sqlEditorHandler,
+		ChartHandler:        chartHandler,
 	})
 
 	go func() {
 		addr := fmt.Sprintf(":%d", cfg.BackendPort)
-		log.Printf("server running at http://localhost%s", addr)
 		if err := app.Listen(addr); err != nil {
 			log.Fatalf("server stopped: %v", err)
 		}
@@ -94,10 +97,11 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer shutdownCancel()
 
 	if err := app.ShutdownWithContext(shutdownCtx); err != nil {
 		log.Printf("failed to shutdown server: %v", err)
 	}
+	os.Exit(0)
 }
