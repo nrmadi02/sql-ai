@@ -74,6 +74,21 @@ export const generator = {
   aiMetaTotalTokens: "Total token",
   aiMetaPendingTokens: "Menghitung token",
   aiMetaNoContextTables: "Tidak ada tabel detail dikirim",
+  aiMetaContextWindowed: "Konteks diringkas",
+  aiMetaContextWindowedYes: "Ya, pesan lama diringkas",
+  aiMetaContextWindowedNo: "Tidak, semua pesan utuh",
+  sqlWarningTitle: "Query ini di-generate AI",
+  sqlWarningDescription:
+    "Pastikan hasilnya sesuai ekspektasi sebelum digunakan.",
+  sqlWarningLearnMore: "Pelajari lebih lanjut",
+  sqlWarningLearnMoreTitle: "Mengapa perlu verifikasi?",
+  sqlWarningLearnMoreBody:
+    "AI bisa menghasilkan SQL yang valid secara sintaks tapi salah secara logika. Periksa JOIN, agregasi, filter, dan nama kolom sebelum menjalankan query di data produksi.",
+  tablePreviewColumns: "Kolom",
+  tablePreviewRelations: "Relasi",
+  tablePreviewSample: "Sampel data",
+  tablePreviewEmpty: "Tabel kosong",
+  tablePreviewRows: "baris",
 } as const;
 
 // Empty states are embedded directly in each page (see app/(app)/*).
@@ -184,9 +199,44 @@ export const sqlEditor = {
   },
 } as const;
 
+export const chart = {
+  tabTable: "Tabel",
+  tabChart: "Grafik",
+  configTitle: "Konfigurasi grafik",
+  typeLabel: "Tipe",
+  xAxisLabel: "Sumbu X",
+  yAxisLabel: "Sumbu Y",
+  categoryLabel: "Kategori",
+  categoryNone: "Tanpa kategori",
+  colorLabel: "Warna",
+  paletteDefault: "Default",
+  paletteWarm: "Hangat",
+  paletteCool: "Dingin",
+  paletteMono: "Monokrom",
+  exportPng: "Unduh PNG",
+  exportCsv: "Unduh CSV",
+  saveConfig: "Simpan konfigurasi",
+  savingConfig: "Menyimpan…",
+  emptyChart:
+    "Pilih kolom sumbu X dan Y untuk menampilkan grafik dari hasil query.",
+  invalidConfig: "Konfigurasi grafik belum lengkap. Periksa sumbu X dan Y.",
+  noReference:
+    "Konfigurasi grafik hanya tersimpan saat query terhubung ke sesi.",
+  exportPngSuccess: "Grafik berhasil diunduh sebagai PNG",
+  exportCsvSuccess: "Data grafik berhasil diunduh sebagai CSV",
+  exportFailed: "Gagal mengekspor grafik",
+  typeBar: "Bar",
+  typeLine: "Line",
+  typePie: "Pie",
+  typeArea: "Area",
+  configureToggle: "Atur sumbu & warna",
+  configureHide: "Sembunyikan pengaturan",
+} as const;
+
 export const toasts = {
   querySucceeded: "Query berhasil dijalankan",
   querySaved: "Query tersimpan",
+  chartSaved: "Konfigurasi grafik tersimpan",
   sqlCopied: "SQL tersalin ke clipboard",
   connectionSucceeded: "Koneksi berhasil",
   schemaSynced: "Schema berhasil disinkronkan",

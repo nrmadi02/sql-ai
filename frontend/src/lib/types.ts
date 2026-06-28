@@ -149,6 +149,7 @@ export type AIMetadata = {
   context_tables: string[];
   available_tables_count: number;
   history_messages_count: number;
+  context_windowed?: boolean;
   estimated_context_tokens: number;
   prompt_tokens?: number;
   completion_tokens?: number;
@@ -315,4 +316,52 @@ export type QueryHistoryPage = {
   page: number;
   page_size: number;
   total_pages: number;
+};
+
+export type ChartType = "bar" | "line" | "pie" | "area";
+
+export type ChartColorPalette = "default" | "warm" | "cool" | "mono";
+
+export type ChartVisualConfig = {
+  color_palette?: ChartColorPalette;
+  colors?: Record<string, string>;
+};
+
+export type ChartConfigRecord = {
+  id: string;
+  saved_query_id?: string;
+  generator_message_id?: string;
+  sql_editor_tab_id?: string;
+  chart_type: ChartType;
+  x_axis_column: string;
+  y_axis_columns: string[];
+  category_column?: string;
+  config: ChartVisualConfig;
+  created_at: string;
+  updated_at: string;
+};
+
+export type CreateChartConfigInput = {
+  saved_query_id?: string;
+  generator_message_id?: string;
+  sql_editor_tab_id?: string;
+  chart_type: ChartType;
+  x_axis_column: string;
+  y_axis_columns: string[];
+  category_column?: string;
+  config?: ChartVisualConfig;
+};
+
+export type UpdateChartConfigInput = {
+  chart_type: ChartType;
+  x_axis_column: string;
+  y_axis_columns: string[];
+  category_column?: string;
+  config?: ChartVisualConfig;
+};
+
+export type ChartReferenceFilter = {
+  saved_query_id?: string;
+  generator_message_id?: string;
+  sql_editor_tab_id?: string;
 };
