@@ -11,6 +11,7 @@ frontend/.env.local
 
 # Backend (Go)
 backend/bin/
+backend/tmp/
 backend/coverage.out
 backend/coverage.html
 
