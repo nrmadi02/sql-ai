@@ -91,6 +91,7 @@ func NewRouter(cfg RouterConfig) *fiber.App {
 	sqlEditor.Get("/autocomplete/:datasourceId", cfg.SqlEditorHandler.GetAutocomplete)
 
 	charts := api.Group("/charts")
+	charts.Post("/suggest", cfg.ChartHandler.Suggest)
 	charts.Post("/", cfg.ChartHandler.Create)
 	charts.Get("/", cfg.ChartHandler.List)
 	charts.Get("/:id", cfg.ChartHandler.GetByID)

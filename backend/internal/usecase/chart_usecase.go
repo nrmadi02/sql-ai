@@ -99,6 +99,15 @@ func (u *ChartUsecase) Delete(ctx context.Context, id uuid.UUID) error {
 	return u.repo.Delete(ctx, id)
 }
 
+func (u *ChartUsecase) Suggest(input ChartSuggestInput) (*ChartSuggestResult, error) {
+	if len(input.Columns) == 0 {
+		return nil, domain.ErrInvalidInput
+	}
+
+	result := analyzeChartDataset(input)
+	return &result, nil
+}
+
 func validateChartReference(savedQueryID, generatorMessageID, sqlEditorTabID *uuid.UUID) error {
 	if savedQueryID == nil && generatorMessageID == nil && sqlEditorTabID == nil {
 		return domain.ErrInvalidInput

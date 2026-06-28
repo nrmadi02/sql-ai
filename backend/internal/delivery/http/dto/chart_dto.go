@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/nrmadi02/sql-ai/internal/domain/entity"
+	"github.com/nrmadi02/sql-ai/internal/usecase"
 )
 
 type CreateChartConfigRequest struct {
@@ -64,6 +65,52 @@ func ToChartConfigResponse(config *entity.ChartConfig) ChartConfigResponse {
 		Config:             configJSON,
 		CreatedAt:          config.CreatedAt,
 		UpdatedAt:          config.UpdatedAt,
+	}
+}
+
+type ChartSuggestRequest struct {
+	Columns  []QueryColumnResponse `json:"columns"`
+	Rows     [][]any               `json:"rows"`
+	RowCount int                   `json:"row_count"`
+}
+
+type ChartSuggestResponse struct {
+	Chartable             bool     `json:"chartable"`
+	LargeDataset          bool     `json:"large_dataset"`
+	NumericColumns        []string `json:"numeric_columns"`
+	LabelColumns          []string `json:"label_columns"`
+	SuggestedFilters      []string `json:"suggested_filters"`
+	SuggestedAggregations []string `json:"suggested_aggregations"`
+}
+
+func ToChartSuggestResponse(result *usecase.ChartSuggestResult) ChartSuggestResponse {
+	numericColumns := result.NumericColumns
+	if numericColumns == nil {
+		numericColumns = []string{}
+	}
+
+	labelColumns := result.LabelColumns
+	if labelColumns == nil {
+		labelColumns = []string{}
+	}
+
+	suggestedFilters := result.SuggestedFilters
+	if suggestedFilters == nil {
+		suggestedFilters = []string{}
+	}
+
+	suggestedAggregations := result.SuggestedAggregations
+	if suggestedAggregations == nil {
+		suggestedAggregations = []string{}
+	}
+
+	return ChartSuggestResponse{
+		Chartable:             result.Chartable,
+		LargeDataset:          result.LargeDataset,
+		NumericColumns:        numericColumns,
+		LabelColumns:          labelColumns,
+		SuggestedFilters:      suggestedFilters,
+		SuggestedAggregations: suggestedAggregations,
 	}
 }
 

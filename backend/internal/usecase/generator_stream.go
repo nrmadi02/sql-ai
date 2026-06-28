@@ -57,6 +57,7 @@ func (u *GeneratorUsecase) SendMessageStream(
 	}
 
 	aiMetadata := buildAIMetadata(prepared.aiInput, aiResponse.Usage)
+	applyVisualizationHints(&aiMetadata, parseAIVisualizationHints(aiResponse.Content))
 
 	assistantMessage, err := u.generatorRepo.CreateMessage(ctx, &entity.GeneratorMessage{
 		SessionID:    prepared.sessionID,

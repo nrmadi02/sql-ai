@@ -92,6 +92,32 @@ func (h *ChartHandler) Update(c *fiber.Ctx) error {
 	return c.JSON(dto.ToChartConfigResponse(config))
 }
 
+func (h *ChartHandler) Suggest(c *fiber.Ctx) error {
+	var req dto.ChartSuggestRequest
+	if err := c.BodyParser(&req); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid request format")
+	}
+
+	columns := make([]usecase.QueryColumnResult, 0, len(req.Columns))
+	for _, column := range req.Columns {
+		columns = append(columns, usecase.QueryColumnResult{
+			Name: column.Name,
+			Type: column.Type,
+		})
+	}
+
+	result, err := h.usecase.Suggest(usecase.ChartSuggestInput{
+		Columns:  columns,
+		Rows:     req.Rows,
+		RowCount: req.RowCount,
+	})
+	if err != nil {
+		return mapDomainError(err)
+	}
+
+	return c.JSON(dto.ToChartSuggestResponse(result))
+}
+
 func (h *ChartHandler) Delete(c *fiber.Ctx) error {
 	id, err := parseUUIDParam(c, "id")
 	if err != nil {
