@@ -65,6 +65,8 @@ function GeneratorAIMetadata({
   className,
 }: GeneratorAIMetadataProps) {
   const contextTables = metadata.context_tables ?? [];
+  const historyCount = metadata.history_messages_count ?? 0;
+  const contextWindowed = metadata.context_windowed ?? false;
   const totalTokens =
     metadata.total_tokens ??
     (metadata.prompt_tokens !== undefined &&
@@ -103,6 +105,19 @@ function GeneratorAIMetadata({
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          {historyCount > 0 ? (
+            <Badge variant="secondary" className="font-mono tabular-nums">
+              {historyCount} pesan
+            </Badge>
+          ) : null}
+          {contextWindowed ? (
+            <Badge
+              variant="outline"
+              className="border-amber-500/35 bg-amber-500/8 text-amber-800 dark:text-amber-200"
+            >
+              {generator.aiMetaContextWindowed}
+            </Badge>
+          ) : null}
           <Badge variant="outline" className="font-mono tabular-nums">
             {isStreaming && totalTokens === undefined
               ? `~${summaryTokens}`
@@ -144,8 +159,16 @@ function GeneratorAIMetadata({
           />
           <MetadataMetric
             label={generator.aiMetaHistory}
-            value={`${metadata.history_messages_count} pesan`}
+            value={`${historyCount} pesan`}
             mono
+          />
+          <MetadataMetric
+            label={generator.aiMetaContextWindowed}
+            value={
+              contextWindowed
+                ? generator.aiMetaContextWindowedYes
+                : generator.aiMetaContextWindowedNo
+            }
           />
           <MetadataMetric
             label={generator.aiMetaEstimatedContext}

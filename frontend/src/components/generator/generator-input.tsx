@@ -23,6 +23,7 @@ import {
 import { buttons, generator } from "@/lib/microcopy";
 import { cn } from "@/lib/utils";
 import { TableMention } from "./table-mention";
+import { TablePreviewPopup } from "./table-preview-popup";
 
 type GeneratorInputProps = {
   onSend: (content: string, tables: string[]) => void;
@@ -58,6 +59,8 @@ function GeneratorInput({
       .filter((name) => name.toLowerCase().includes(query))
       .slice(0, 8);
   }, [mentionQuery, tablesQuery.data?.tables]);
+
+  const highlightedTable = tableOptions[selectedIndex] ?? null;
 
   const updateMentionState = useCallback(
     (nextValue: string, nextCursor: number) => {
@@ -214,46 +217,57 @@ function GeneratorInput({
 
         <div className="relative">
           {mentionOpen ? (
-            <div
-              ref={mentionListRef}
-              className="absolute right-0 bottom-full left-0 z-20 mb-2 overflow-hidden rounded-xl border border-border/70 bg-popover shadow-md"
-            >
-              <Command
-                shouldFilter={false}
-                value={tableOptions[selectedIndex] ?? ""}
-                onValueChange={(table) => {
-                  const index = tableOptions.indexOf(table);
-                  if (index >= 0) setSelectedIndex(index);
-                }}
+            <div className="absolute right-0 bottom-full left-0 z-20 mb-2 flex items-end gap-2">
+              <div
+                ref={mentionListRef}
+                className="min-w-0 flex-1 overflow-hidden rounded-xl border border-border/70 bg-popover shadow-md"
               >
-                <CommandList>
-                  <CommandEmpty>Tabel tidak ditemukan.</CommandEmpty>
-                  <CommandGroup heading="Tabel schema">
-                    {tableOptions.map((table, index) => (
-                      <CommandItem
-                        key={table}
-                        value={table}
-                        data-mention-index={index}
-                        className={cn(
-                          index === selectedIndex &&
-                            "bg-muted text-foreground",
-                        )}
-                        onMouseEnter={() => {
-                          if (keyboardNavRef.current) return;
-                          setSelectedIndex(index);
-                        }}
-                        onMouseMove={() => {
-                          keyboardNavRef.current = false;
-                        }}
-                        onSelect={() => handleSelectTable(table)}
-                      >
-                        <HugeiconsIcon icon={TableIcon} strokeWidth={2} />
-                        <span className="font-mono text-xs">/{table}</span>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
+                <Command
+                  shouldFilter={false}
+                  value={highlightedTable ?? ""}
+                  onValueChange={(table) => {
+                    const index = tableOptions.indexOf(table);
+                    if (index >= 0) setSelectedIndex(index);
+                  }}
+                >
+                  <CommandList>
+                    <CommandEmpty>Tabel tidak ditemukan.</CommandEmpty>
+                    <CommandGroup heading="Tabel schema">
+                      {tableOptions.map((table, index) => (
+                        <CommandItem
+                          key={table}
+                          value={table}
+                          data-mention-index={index}
+                          className={cn(
+                            index === selectedIndex &&
+                              "bg-muted text-foreground",
+                          )}
+                          onMouseEnter={() => {
+                            if (keyboardNavRef.current) return;
+                            setSelectedIndex(index);
+                          }}
+                          onMouseMove={() => {
+                            keyboardNavRef.current = false;
+                          }}
+                          onFocus={() => setSelectedIndex(index)}
+                          onSelect={() => handleSelectTable(table)}
+                        >
+                          <HugeiconsIcon icon={TableIcon} strokeWidth={2} />
+                          <span className="font-mono text-xs">/{table}</span>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </div>
+
+              {highlightedTable && activeDatasourceId ? (
+                <TablePreviewPopup
+                  datasourceId={activeDatasourceId}
+                  tableName={highlightedTable}
+                  className="hidden md:flex"
+                />
+              ) : null}
             </div>
           ) : null}
 

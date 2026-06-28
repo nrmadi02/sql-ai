@@ -6,6 +6,8 @@ import { api } from "@/lib/api";
 import { toasts } from "@/lib/microcopy";
 import type { ListTablesResult, QueryResult, TableDetail } from "@/lib/types";
 
+const SCHEMA_STALE_TIME_MS = 5 * 60 * 1000;
+
 export const schemaKeys = {
   tables: (datasourceId: string) => ["schema", datasourceId, "tables"] as const,
   tableDetail: (datasourceId: string, tableName: string) =>
@@ -22,6 +24,7 @@ export function useSchemaTables(datasourceId: string | null) {
     queryFn: () =>
       api.get<ListTablesResult>(`/api/v1/datasources/${datasourceId}/tables`),
     enabled: Boolean(datasourceId),
+    staleTime: SCHEMA_STALE_TIME_MS,
   });
 }
 
@@ -36,6 +39,7 @@ export function useTableDetail(
         `/api/v1/datasources/${datasourceId}/tables/${encodeURIComponent(tableName ?? "")}`,
       ),
     enabled: Boolean(datasourceId && tableName),
+    staleTime: SCHEMA_STALE_TIME_MS,
   });
 }
 
@@ -51,6 +55,7 @@ export function useTablePreview(
         `/api/v1/datasources/${datasourceId}/tables/${encodeURIComponent(tableName ?? "")}/preview`,
       ),
     enabled: Boolean(datasourceId && tableName && enabled),
+    staleTime: SCHEMA_STALE_TIME_MS,
   });
 }
 

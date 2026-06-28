@@ -9,6 +9,7 @@ import { generator } from "@/lib/microcopy";
 import type { AIMetadata, DatasourceType, GeneratorMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { GeneratorAIMetadata } from "./generator-ai-metadata";
+import { GeneratorSqlWarning } from "./generator-sql-warning";
 import { TableMention } from "./table-mention";
 
 type GeneratorMessageItemProps = {
@@ -117,6 +118,7 @@ function GeneratorMessageItem({
 
         {!isUser && sql && sessionId ? (
           <div className="w-full space-y-1.5">
+            <GeneratorSqlWarning sessionId={sessionId} />
             <p className="font-medium text-muted-foreground text-[0.65rem] uppercase tracking-wide">
               {generator.sqlLabel}
             </p>
