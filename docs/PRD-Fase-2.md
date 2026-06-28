@@ -416,24 +416,24 @@ backend/internal/
 
 ---
 
-### Sprint 9 — Visualisasi Adaptif & Filter Interaktif (1 minggu)
+### Sprint 9 — Visualisasi Adaptif & Penanganan Data Non-Chartable (1 minggu)
 
-> **Tujuan:** N2 selesai. AI bisa menulis ulang query untuk format grafik, dan auto-suggest filter jika data terlalu besar (>100 baris).
+> **Tujuan:** N2 selesai. AI bisa menulis ulang query untuk format grafik, menangani dataset yang terlalu besar (>100 baris), dan **memberikan solusi untuk hasil query mentah (non-agregat) yang tidak bisa divisualisasikan**.
 
 #### Backend
 
-- 🔴 [BE] [ ] Modifikasi `prompt.go` — tambah instruksi visualisasi (aturan 8-9 di system prompt)
-- 🔴 [BE] [ ] Modifikasi `generator_stream.go` — parse blok `chart` dari respons AI
-- 🟡 [BE] [ ] Extend `AIMetadata` struct — tambah field `SuggestedChart` dan `SuggestedFilters`
-- 🟡 [BE] [ ] Usecase: `ChartUsecase.Suggest()` — logika deteksi otomatis tipe grafik & filter dataset besar
+- 🔴 [BE] [x] Modifikasi `prompt.go` — instruksi visualisasi (aturan 8-9): AI harus menyarankan agregasi jika query awal adalah flat list (misal: `SELECT * FROM users`).
+- 🔴 [BE] [x] Modifikasi `generator_stream.go` — parse blok `chart` dari respons AI.
+- 🟡 [BE] [x] Extend `AIMetadata` struct — tambah field `SuggestedChart` (json), `SuggestedFilters` ([]string), dan `SuggestedAggregations` ([]string).
+- 🟡 [BE] [x] Usecase: `ChartUsecase.Suggest()` — logika deteksi dataset non-chartable (tidak ada kolom numerik yang valid untuk Y-axis) & deteksi dataset besar.
 
 #### Frontend
 
-- 🔴 [FE] [ ] Modifikasi `generator-message.tsx` — deteksi `suggested_chart` di `AIMetadata`
-- 🔴 [FE] [ ] Komponen notifikasi: "AI menyarankan [tipe] chart" + tombol "Terapkan"
-- 🟡 [FE] [ ] UI Chip interaktif: Munculkan rekomendasi filter saat baris data > 100 ("Tampilkan Top 10", "Kelompokkan per bulan")
-- 🟡 [FE] [ ] Implementasi klik chip rekomendasi → trigger AI untuk rewrite SQL query
-- 🟢 [FE] [ ] Polish seluruh Fase 2: transisi, responsif, empty state, error handling
+- 🔴 [FE] [x] Modifikasi `chart-panel.tsx` / `chart-config.tsx` — Jika data non-chartable (hanya string/ID), tampilkan Empty State: "Data ini tidak memiliki angka untuk dikalkulasi grafik."
+- 🔴 [FE] [x] Komponen Notifikasi / Chip: Munculkan saran AI `SuggestedAggregations` (misal: "Hitung total user per bulan") saat data non-chartable.
+- 🟡 [FE] [x] UI Chip interaktif: Munculkan `SuggestedFilters` saat baris data > 100 ("Tampilkan Top 10").
+- 🟡 [FE] [x] Implementasi klik chip rekomendasi → otomatis trigger message baru ke AI untuk me-rewrite SQL query menjadi chartable.
+- 🟢 [FE] [x] Polish seluruh Fase 2: transisi, responsif, empty state, error handling.
 
 ---
 
