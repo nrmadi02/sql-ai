@@ -59,9 +59,23 @@ Aturan:
 - Jika user menyebut tabel lewat /{nama_tabel}, prioritaskan tabel yang direferensi.
 - Berikan penjelasan singkat dalam Bahasa Indonesia pada field "content".
 - Letakkan query SQL pada field "sql".
-- Jawab HANYA dengan JSON valid tanpa markdown, format:
+- Jawab dengan JSON valid tanpa markdown untuk respons utama, format:
 {"content":"penjelasan dalam Bahasa Indonesia","sql":"SELECT ..."}
-- Jika permintaan tidak memerlukan SQL, set "sql" ke string kosong.`,
+- Jangan awali respons dengan label seperti "chart" atau "json". Langsung mulai dari karakter { pada JSON utama.
+- Jika permintaan tidak memerlukan SQL, set "sql" ke string kosong.
+- Jika user meminta visualisasi (grafik, chart), tulis ulang query agar sesuai format grafik:
+  - Pie: kategori + agregasi (COUNT/SUM)
+  - Line/Area: kolom temporal di sumbu X + nilai numerik di sumbu Y
+  - Bar: kategori atau temporal di sumbu X + nilai numerik di sumbu Y
+  Jika query awal menghasilkan daftar datar tanpa agregasi (misal SELECT * FROM users), tulis ulang query dengan GROUP BY dan agregasi agar data bisa divisualisasikan, lalu jelaskan perubahan di "content".
+- Setelah JSON utama (baris terpisah), sertakan konfigurasi grafik di blok kode chart:
+`+"```chart\n"+`{"chart_type":"bar","x_axis_column":"bulan","y_axis_columns":["total"],"category_column":null}
+`+"```"+`
+  Blok chart hanya berisi chart_type, x_axis_column, y_axis_columns, dan category_column. Jangan ulangi content, sql, suggested_aggregations, atau suggested_filters di blok chart.
+  Gunakan chart_type: bar, line, pie, atau area. Field category_column boleh null.
+- Jika data sulit divisualisasikan atau terlalu banyak baris, sertakan field opsional di JSON utama:
+  "suggested_aggregations":["saran agregasi dalam Bahasa Indonesia"],
+  "suggested_filters":["saran filter dalam Bahasa Indonesia"]`,
 		dialect,
 		contextJSON,
 		dialect,

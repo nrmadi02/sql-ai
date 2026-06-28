@@ -23,6 +23,7 @@ const openAIMaxTokens = 4096
 var (
 	openAIJSONBlockPattern = regexp.MustCompile("(?is)```(?:json)?\\s*([\\s\\S]*?)```")
 	openAISQLBlockPattern  = regexp.MustCompile("(?is)```(?:sql)?\\s*([\\s\\S]*?)```")
+	chartBlockPattern = regexp.MustCompile("(?is)```chart\\s*([\\s\\S]*?)```")
 )
 
 type OpenAICompat struct {
@@ -267,7 +268,7 @@ func parseOpenAIAssistantContent(raw string) (*GenerateSQLResponse, error) {
 	}
 
 	sql := extractOpenAISQLBlock(raw)
-	content := strings.TrimSpace(openAISQLBlockPattern.ReplaceAllString(raw, ""))
+	content := strings.TrimSpace(stripAssistantArtifacts(raw))
 	if content == "" {
 		content = raw
 	}
@@ -279,12 +280,7 @@ func parseOpenAIAssistantContent(raw string) (*GenerateSQLResponse, error) {
 }
 
 func parseOpenAIStructuredReply(raw string) (openAIStructuredReply, bool) {
-	candidates := []string{raw}
-	if match := openAIJSONBlockPattern.FindStringSubmatch(raw); len(match) > 1 {
-		candidates = append([]string{strings.TrimSpace(match[1])}, candidates...)
-	}
-
-	for _, candidate := range candidates {
+	for _, candidate := range assistantJSONCandidates(raw) {
 		candidate = strings.TrimSpace(candidate)
 		if candidate == "" {
 			continue
@@ -303,6 +299,131 @@ func parseOpenAIStructuredReply(raw string) (openAIStructuredReply, bool) {
 	}
 
 	return openAIStructuredReply{}, false
+}
+
+func assistantJSONCandidates(raw string) []string {
+	raw = strings.TrimSpace(raw)
+	seen := make(map[string]struct{})
+	result := make([]string, 0, 4)
+
+	add := func(value string) {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			return
+		}
+		if _, ok := seen[value]; ok {
+			return
+		}
+		seen[value] = struct{}{}
+		result = append(result, value)
+	}
+
+	add(raw)
+	add(normalizeAssistantRaw(raw))
+
+	if match := openAIJSONBlockPattern.FindStringSubmatch(raw); len(match) > 1 {
+		add(match[1])
+	}
+
+	if firstLine := firstAssistantJSONLine(raw); firstLine != "" {
+		add(firstLine)
+	}
+
+	return result
+}
+
+func normalizeAssistantRaw(raw string) string {
+	raw = strings.TrimSpace(raw)
+	lower := strings.ToLower(raw)
+	for _, prefix := range []string{"chart ", "json "} {
+		if strings.HasPrefix(lower, prefix) {
+			return strings.TrimSpace(raw[len(prefix):])
+		}
+	}
+	return raw
+}
+
+func firstAssistantJSONLine(raw string) string {
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		line = normalizeAssistantRaw(line)
+		if json.Valid([]byte(line)) {
+			return line
+		}
+	}
+	return ""
+}
+
+func stripAssistantArtifacts(raw string) string {
+	if structured, ok := parseOpenAIStructuredReply(raw); ok {
+		if content := strings.TrimSpace(structured.Content); content != "" {
+			return content
+		}
+	}
+
+	cleaned := chartBlockPattern.ReplaceAllString(raw, "")
+	cleaned = openAISQLBlockPattern.ReplaceAllString(cleaned, "")
+
+	kept := make([]string, 0, strings.Count(cleaned, "\n")+1)
+	for _, line := range strings.Split(cleaned, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		if isLooseChartConfigLine(trimmed) {
+			continue
+		}
+		if isStructuredAssistantJSONLine(trimmed) {
+			continue
+		}
+		kept = append(kept, trimmed)
+	}
+
+	if len(kept) == 0 {
+		return strings.TrimSpace(cleaned)
+	}
+	return strings.Join(kept, "\n")
+}
+
+func isLooseChartConfigLine(line string) bool {
+	line = normalizeAssistantRaw(line)
+	if !strings.Contains(line, `"chart_type"`) || !json.Valid([]byte(line)) {
+		return false
+	}
+
+	var probe struct {
+		ChartType string `json:"chart_type"`
+	}
+	if err := json.Unmarshal([]byte(line), &probe); err != nil {
+		return false
+	}
+
+	switch strings.TrimSpace(probe.ChartType) {
+	case "bar", "line", "pie", "area":
+		return true
+	default:
+		return false
+	}
+}
+
+func isStructuredAssistantJSONLine(line string) bool {
+	line = normalizeAssistantRaw(line)
+	if !json.Valid([]byte(line)) {
+		return false
+	}
+
+	var probe struct {
+		Content string `json:"content"`
+		SQL     string `json:"sql"`
+	}
+	if err := json.Unmarshal([]byte(line), &probe); err != nil {
+		return false
+	}
+
+	return strings.TrimSpace(probe.Content) != "" || strings.TrimSpace(probe.SQL) != ""
 }
 
 func extractOpenAISQLBlock(raw string) string {

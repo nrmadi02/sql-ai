@@ -79,6 +79,24 @@ func TestBuildPromptContextIncludesAvailableTables(t *testing.T) {
 	}
 }
 
+func TestBuildSQLSystemPromptIncludesVisualizationRules(t *testing.T) {
+	t.Parallel()
+
+	prompt := BuildSQLSystemPrompt(GenerateSQLInput{Dialect: "postgresql"})
+
+	for _, snippet := range []string{
+		"visualisasi",
+		"daftar datar tanpa agregasi",
+		"```chart",
+		"suggested_aggregations",
+		"suggested_filters",
+	} {
+		if !strings.Contains(prompt, snippet) {
+			t.Fatalf("expected %q in prompt", snippet)
+		}
+	}
+}
+
 func TestBuildPromptContextShape(t *testing.T) {
 	t.Parallel()
 
