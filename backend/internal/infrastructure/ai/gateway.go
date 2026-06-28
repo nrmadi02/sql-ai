@@ -21,7 +21,16 @@ type GenerateSQLInput struct {
 	ReferencedTables    []string
 	ContextTables       []string
 	TableSchemas        []entity.TableDetail
+	ContextSummary      string
+	ContextWindowed     bool
+	HistoryMessageCount int
 	ConversationHistory []ChatMessage
+}
+
+type SummarizeConversationInput struct {
+	Provider        *entity.AIProvider
+	ExistingSummary string
+	Messages        []ChatMessage
 }
 
 type GenerateSQLResponse struct {
@@ -33,11 +42,13 @@ type GenerateSQLResponse struct {
 type Gateway interface {
 	GenerateSQL(ctx context.Context, input GenerateSQLInput) (*GenerateSQLResponse, error)
 	GenerateSQLStream(ctx context.Context, input GenerateSQLInput, onDelta StreamDeltaCallback) (*GenerateSQLResponse, error)
+	SummarizeConversation(ctx context.Context, input SummarizeConversationInput) (string, error)
 }
 
 type sqlGeneratorClient interface {
 	GenerateSQL(ctx context.Context, input GenerateSQLInput) (*GenerateSQLResponse, error)
 	GenerateSQLStream(ctx context.Context, input GenerateSQLInput, onDelta StreamDeltaCallback) (*GenerateSQLResponse, error)
+	SummarizeConversation(ctx context.Context, input SummarizeConversationInput) (string, error)
 }
 
 type gateway struct {
@@ -72,5 +83,20 @@ func (g *gateway) GenerateSQLStream(ctx context.Context, input GenerateSQLInput,
 		return g.anthropic.GenerateSQLStream(ctx, input, onDelta)
 	default:
 		return nil, domain.ErrUnsupportedAPIFmt
+	}
+}
+
+func (g *gateway) SummarizeConversation(ctx context.Context, input SummarizeConversationInput) (string, error) {
+	if input.Provider == nil {
+		return "", domain.ErrInvalidInput
+	}
+
+	switch strings.TrimSpace(input.Provider.APIFormat) {
+	case entity.APIFormatOpenAI:
+		return g.openAI.SummarizeConversation(ctx, input)
+	case entity.APIFormatAnthropic:
+		return g.anthropic.SummarizeConversation(ctx, input)
+	default:
+		return "", domain.ErrUnsupportedAPIFmt
 	}
 }

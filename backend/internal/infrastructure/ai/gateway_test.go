@@ -32,6 +32,13 @@ func (s *stubSQLGenerator) GenerateSQLStream(ctx context.Context, input Generate
 	}, nil
 }
 
+func (s *stubSQLGenerator) SummarizeConversation(ctx context.Context, input SummarizeConversationInput) (string, error) {
+	if s.err != nil {
+		return "", s.err
+	}
+	return "ringkasan percakapan", nil
+}
+
 func TestGatewayRoutesByAPIFormat(t *testing.T) {
 	t.Parallel()
 

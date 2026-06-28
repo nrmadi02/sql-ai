@@ -4,6 +4,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/nrmadi02/sql-ai/internal/domain/entity"
+)
+
+const (
+	MaxHistoryMessages = 20
+	SummarizeBatchSize = 5
 )
 
 type promptTableColumn struct {
@@ -110,6 +117,61 @@ func buildPromptContext(input GenerateSQLInput, dialect string) promptContext {
 		Tables:           tables,
 		Relations:        relations,
 	}
+}
+
+func FilterConversationMessages(messages []*entity.GeneratorMessage) []*entity.GeneratorMessage {
+	filtered := make([]*entity.GeneratorMessage, 0, len(messages))
+	for _, message := range messages {
+		if message == nil {
+			continue
+		}
+		switch message.Role {
+		case entity.MessageRoleUser, entity.MessageRoleAssistant:
+			filtered = append(filtered, message)
+		}
+	}
+	return filtered
+}
+
+func BuildConversationSummaryPrompt(existingSummary string, messages []ChatMessage) string {
+	var builder strings.Builder
+
+	builder.WriteString(`Ringkas percakapan berikut tentang pembuatan query SQL dalam Bahasa Indonesia.
+Fokus pada: tabel yang dibahas, filter/aggregate yang diminta, dan perubahan iteratif antar pesan.
+Maksimal 3 kalimat. Jangan sertakan SQL mentah.
+
+`)
+
+	existingSummary = strings.TrimSpace(existingSummary)
+	if existingSummary != "" {
+		builder.WriteString("Ringkasan sebelumnya:\n")
+		builder.WriteString(existingSummary)
+		builder.WriteString("\n\n")
+	}
+
+	builder.WriteString("Pesan yang perlu digabungkan:\n")
+	for _, message := range messages {
+		role := strings.TrimSpace(message.Role)
+		content := strings.TrimSpace(message.Content)
+		if role == "" || content == "" {
+			continue
+		}
+		builder.WriteString(role)
+		builder.WriteString(": ")
+		builder.WriteString(content)
+		builder.WriteString("\n")
+	}
+
+	builder.WriteString("\nJawab HANYA dengan teks ringkasan tanpa format tambahan.")
+	return builder.String()
+}
+
+func FormatContextSummaryMessage(summary string) string {
+	summary = strings.TrimSpace(summary)
+	if summary == "" {
+		return ""
+	}
+	return fmt.Sprintf("Ringkasan percakapan sebelumnya:\n%s", summary)
 }
 
 func normalizeDialect(dialect string) string {

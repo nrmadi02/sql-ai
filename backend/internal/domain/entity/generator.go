@@ -14,12 +14,13 @@ const (
 )
 
 type GeneratorSession struct {
-	ID           uuid.UUID
-	Title        string
-	DatasourceID *uuid.UUID
-	AIProviderID *uuid.UUID
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	ID             uuid.UUID
+	Title          string
+	DatasourceID   *uuid.UUID
+	AIProviderID   *uuid.UUID
+	ContextSummary string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type GeneratorMessage struct {

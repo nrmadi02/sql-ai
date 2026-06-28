@@ -79,7 +79,7 @@ const createGeneratorSession = `-- name: CreateGeneratorSession :one
 INSERT INTO generator_sessions (
     title, datasource_id, ai_provider_id
 ) VALUES ($1, $2, $3)
-RETURNING id, title, datasource_id, ai_provider_id, created_at, updated_at
+RETURNING id, title, datasource_id, ai_provider_id, created_at, updated_at, context_summary
 `
 
 type CreateGeneratorSessionParams struct {
@@ -98,6 +98,7 @@ func (q *Queries) CreateGeneratorSession(ctx context.Context, arg CreateGenerato
 		&i.AiProviderID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ContextSummary,
 	)
 	return i, err
 }
@@ -140,7 +141,7 @@ func (q *Queries) GetGeneratorMessage(ctx context.Context, id pgtype.UUID) (Gene
 
 const getGeneratorSession = `-- name: GetGeneratorSession :one
 
-SELECT id, title, datasource_id, ai_provider_id, created_at, updated_at FROM generator_sessions WHERE id = $1
+SELECT id, title, datasource_id, ai_provider_id, created_at, updated_at, context_summary FROM generator_sessions WHERE id = $1
 `
 
 // Generator Sessions
@@ -154,7 +155,24 @@ func (q *Queries) GetGeneratorSession(ctx context.Context, id pgtype.UUID) (Gene
 		&i.AiProviderID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ContextSummary,
 	)
+	return i, err
+}
+
+const getGeneratorSessionWithSummary = `-- name: GetGeneratorSessionWithSummary :one
+SELECT id, context_summary FROM generator_sessions WHERE id = $1
+`
+
+type GetGeneratorSessionWithSummaryRow struct {
+	ID             pgtype.UUID `json:"id"`
+	ContextSummary pgtype.Text `json:"context_summary"`
+}
+
+func (q *Queries) GetGeneratorSessionWithSummary(ctx context.Context, id pgtype.UUID) (GetGeneratorSessionWithSummaryRow, error) {
+	row := q.db.QueryRow(ctx, getGeneratorSessionWithSummary, id)
+	var i GetGeneratorSessionWithSummaryRow
+	err := row.Scan(&i.ID, &i.ContextSummary)
 	return i, err
 }
 
@@ -199,7 +217,7 @@ func (q *Queries) ListGeneratorMessagesBySession(ctx context.Context, sessionID 
 }
 
 const listGeneratorSessions = `-- name: ListGeneratorSessions :many
-SELECT id, title, datasource_id, ai_provider_id, created_at, updated_at FROM generator_sessions ORDER BY updated_at DESC
+SELECT id, title, datasource_id, ai_provider_id, created_at, updated_at, context_summary FROM generator_sessions ORDER BY updated_at DESC
 `
 
 func (q *Queries) ListGeneratorSessions(ctx context.Context) ([]GeneratorSession, error) {
@@ -218,6 +236,7 @@ func (q *Queries) ListGeneratorSessions(ctx context.Context) ([]GeneratorSession
 			&i.AiProviderID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ContextSummary,
 		); err != nil {
 			return nil, err
 		}
@@ -335,7 +354,7 @@ UPDATE generator_sessions SET
     ai_provider_id = $4,
     updated_at = NOW()
 WHERE id = $1
-RETURNING id, title, datasource_id, ai_provider_id, created_at, updated_at
+RETURNING id, title, datasource_id, ai_provider_id, created_at, updated_at, context_summary
 `
 
 type UpdateGeneratorSessionParams struct {
@@ -360,6 +379,23 @@ func (q *Queries) UpdateGeneratorSession(ctx context.Context, arg UpdateGenerato
 		&i.AiProviderID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ContextSummary,
 	)
 	return i, err
+}
+
+const updateGeneratorSessionSummary = `-- name: UpdateGeneratorSessionSummary :exec
+UPDATE generator_sessions
+SET context_summary = $2, updated_at = NOW()
+WHERE id = $1
+`
+
+type UpdateGeneratorSessionSummaryParams struct {
+	ID             pgtype.UUID `json:"id"`
+	ContextSummary pgtype.Text `json:"context_summary"`
+}
+
+func (q *Queries) UpdateGeneratorSessionSummary(ctx context.Context, arg UpdateGeneratorSessionSummaryParams) error {
+	_, err := q.db.Exec(ctx, updateGeneratorSessionSummary, arg.ID, arg.ContextSummary)
+	return err
 }

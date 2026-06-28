@@ -21,6 +21,14 @@ UPDATE generator_sessions SET
 WHERE id = $1
 RETURNING *;
 
+-- name: GetGeneratorSessionWithSummary :one
+SELECT id, context_summary FROM generator_sessions WHERE id = $1;
+
+-- name: UpdateGeneratorSessionSummary :exec
+UPDATE generator_sessions
+SET context_summary = $2, updated_at = NOW()
+WHERE id = $1;
+
 -- name: TouchGeneratorSession :exec
 UPDATE generator_sessions SET updated_at = NOW() WHERE id = $1;
 

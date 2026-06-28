@@ -68,6 +68,28 @@ func (r *GeneratorRepository) ListSessions(ctx context.Context) ([]*entity.Gener
 	return result, nil
 }
 
+func (r *GeneratorRepository) GetSessionWithSummary(ctx context.Context, id uuid.UUID) (string, error) {
+	row, err := r.queries.GetGeneratorSessionWithSummary(ctx, pgUUIDFromUUID(id))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", domain.ErrNotFound
+		}
+		return "", fmt.Errorf("get generator session summary: %w", err)
+	}
+
+	return textValue(row.ContextSummary, ""), nil
+}
+
+func (r *GeneratorRepository) UpdateSessionSummary(ctx context.Context, id uuid.UUID, summary string) error {
+	if err := r.queries.UpdateGeneratorSessionSummary(ctx, sqlcgen.UpdateGeneratorSessionSummaryParams{
+		ID:             pgUUIDFromUUID(id),
+		ContextSummary: pgTextFromString(summary),
+	}); err != nil {
+		return fmt.Errorf("update generator session summary: %w", err)
+	}
+	return nil
+}
+
 func (r *GeneratorRepository) UpdateSession(ctx context.Context, session *entity.GeneratorSession) (*entity.GeneratorSession, error) {
 	row, err := r.queries.UpdateGeneratorSession(ctx, sqlcgen.UpdateGeneratorSessionParams{
 		ID:           pgUUIDFromUUID(session.ID),
@@ -208,12 +230,13 @@ func (r *GeneratorRepository) sessionToEntity(row sqlcgen.GeneratorSession) (*en
 	}
 
 	return &entity.GeneratorSession{
-		ID:           id,
-		Title:        textValue(row.Title, ""),
-		DatasourceID: datasourceID,
-		AIProviderID: aiProviderID,
-		CreatedAt:    timestampValue(row.CreatedAt),
-		UpdatedAt:    timestampValue(row.UpdatedAt),
+		ID:             id,
+		Title:          textValue(row.Title, ""),
+		DatasourceID:   datasourceID,
+		AIProviderID:   aiProviderID,
+		ContextSummary: textValue(row.ContextSummary, ""),
+		CreatedAt:      timestampValue(row.CreatedAt),
+		UpdatedAt:      timestampValue(row.UpdatedAt),
 	}, nil
 }
 

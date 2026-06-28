@@ -12,6 +12,7 @@ func (u *TokenUsage) IsEmpty() bool {
 
 func EstimatePromptTokens(input GenerateSQLInput) int {
 	size := len(BuildSQLSystemPrompt(input))
+	size += len(FormatContextSummaryMessage(input.ContextSummary))
 	for _, message := range input.ConversationHistory {
 		size += len(message.Role) + len(message.Content)
 	}

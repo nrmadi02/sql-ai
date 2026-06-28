@@ -217,7 +217,12 @@ func buildAnthropicMessages(input GenerateSQLInput) ([]anthropicMessage, string)
 		Content: input.UserMessage,
 	})
 
-	return messages, BuildSQLSystemPrompt(input)
+	systemPrompt := BuildSQLSystemPrompt(input)
+	if summaryContent := FormatContextSummaryMessage(input.ContextSummary); summaryContent != "" {
+		systemPrompt = systemPrompt + "\n\n" + summaryContent
+	}
+
+	return messages, systemPrompt
 }
 
 func anthropicRole(role string) string {

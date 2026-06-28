@@ -12,6 +12,8 @@ type GeneratorRepository interface {
 	GetSessionByID(ctx context.Context, id uuid.UUID) (*entity.GeneratorSession, error)
 	ListSessions(ctx context.Context) ([]*entity.GeneratorSession, error)
 	UpdateSession(ctx context.Context, session *entity.GeneratorSession) (*entity.GeneratorSession, error)
+	GetSessionWithSummary(ctx context.Context, id uuid.UUID) (string, error)
+	UpdateSessionSummary(ctx context.Context, id uuid.UUID, summary string) error
 	DeleteSession(ctx context.Context, id uuid.UUID) error
 	TouchSession(ctx context.Context, id uuid.UUID) error
 

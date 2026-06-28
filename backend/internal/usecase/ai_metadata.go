@@ -11,13 +11,19 @@ func buildAIMetadata(input ai.GenerateSQLInput, usage *ai.TokenUsage) entity.AIM
 		contextTables = []string{}
 	}
 
+	historyCount := input.HistoryMessageCount
+	if historyCount == 0 {
+		historyCount = len(input.ConversationHistory)
+	}
+
 	metadata := entity.AIMetadata{
 		Model:                  "",
 		APIFormat:              "",
 		Dialect:                input.Dialect,
 		ContextTables:          contextTables,
 		AvailableTablesCount:   len(input.AvailableTables),
-		HistoryMessagesCount:   len(input.ConversationHistory),
+		HistoryMessagesCount:   historyCount,
+		ContextWindowed:        input.ContextWindowed,
 		EstimatedContextTokens: ai.EstimatePromptTokens(input),
 	}
 

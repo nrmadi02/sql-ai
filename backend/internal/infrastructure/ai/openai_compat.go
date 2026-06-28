@@ -210,6 +210,13 @@ func buildOpenAIMessages(input GenerateSQLInput) []openAIChatMessage {
 		{Role: "system", Content: BuildSQLSystemPrompt(input)},
 	}
 
+	if summaryContent := FormatContextSummaryMessage(input.ContextSummary); summaryContent != "" {
+		messages = append(messages, openAIChatMessage{
+			Role:    "system",
+			Content: summaryContent,
+		})
+	}
+
 	for _, message := range input.ConversationHistory {
 		role := openAIRole(message.Role)
 		if role == "" {

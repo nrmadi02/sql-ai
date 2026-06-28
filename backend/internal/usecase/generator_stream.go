@@ -127,6 +127,11 @@ func (u *GeneratorUsecase) prepareSendMessage(
 		return nil, err
 	}
 
+	conversationContext, err := u.buildConversationContext(ctx, sessionID, provider, session.ContextSummary, previousMessages)
+	if err != nil {
+		return nil, err
+	}
+
 	contextTables := resolveContextTables(schemaCache, content, referencedTables, previousMessages)
 
 	userMessage, err := u.generatorRepo.CreateMessage(ctx, &entity.GeneratorMessage{
@@ -154,7 +159,10 @@ func (u *GeneratorUsecase) prepareSendMessage(
 			ReferencedTables:    referencedTables,
 			ContextTables:       contextTables,
 			TableSchemas:        buildTableSchemas(schemaCache, contextTables),
-			ConversationHistory: buildConversationHistory(previousMessages),
+			ContextSummary:      conversationContext.ContextSummary,
+			ContextWindowed:     conversationContext.ContextWindowed,
+			HistoryMessageCount: conversationContext.HistoryMessageCount,
+			ConversationHistory: conversationContext.History,
 		},
 	}, nil
 }

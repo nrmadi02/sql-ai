@@ -43,6 +43,7 @@ type AIMetadataResponse struct {
 	ContextTables          []string `json:"context_tables"`
 	AvailableTablesCount   int      `json:"available_tables_count"`
 	HistoryMessagesCount   int      `json:"history_messages_count"`
+	ContextWindowed        bool     `json:"context_windowed"`
 	EstimatedContextTokens int      `json:"estimated_context_tokens"`
 	PromptTokens           *int     `json:"prompt_tokens,omitempty"`
 	CompletionTokens       *int     `json:"completion_tokens,omitempty"`
@@ -126,6 +127,7 @@ func ToAIMetadataResponse(metadata *entity.AIMetadata) *AIMetadataResponse {
 		ContextTables:          contextTables,
 		AvailableTablesCount:   metadata.AvailableTablesCount,
 		HistoryMessagesCount:   metadata.HistoryMessagesCount,
+		ContextWindowed:        metadata.ContextWindowed,
 		EstimatedContextTokens: metadata.EstimatedContextTokens,
 		PromptTokens:           metadata.PromptTokens,
 		CompletionTokens:       metadata.CompletionTokens,
