@@ -25,7 +25,9 @@ import {
   buildChartContainerConfig,
   type ChartAxisConfig,
   formatChartAxisNumber,
+  normalizeChartAxisConfig,
   resolveChartSeries,
+  resolvePieSliceColors,
   transformQueryResultForChart,
 } from "@/lib/chart-utils";
 import type { QueryExecutionResponse } from "@/lib/types";
@@ -37,12 +39,22 @@ type ChartRendererProps = {
 };
 
 function ChartRenderer({ result, config, className }: ChartRendererProps) {
-  const rawData = transformQueryResultForChart(result, config);
-  const { chartData, seriesKeys } = resolveChartSeries(rawData, config);
-  const chartConfig = buildChartContainerConfig(seriesKeys, config.visualConfig);
-  const primaryYAxis = seriesKeys[0];
-  const colors = seriesKeys.map(
+  const axisConfig = normalizeChartAxisConfig(
+    config,
+    result.columns,
+    result.rows,
+  );
+  const rawData = transformQueryResultForChart(result, axisConfig);
+  const { chartData, seriesKeys } = resolveChartSeries(rawData, axisConfig);
+  const chartConfig = buildChartContainerConfig(seriesKeys, axisConfig.visualConfig);
+  const primaryYAxis = axisConfig.yAxisColumns[0] ?? seriesKeys[0];
+  const sliceLabelKey = axisConfig.xAxisColumn;
+  const seriesColors = seriesKeys.map(
     (column) => chartConfig[column]?.color ?? "var(--chart-1)",
+  );
+  const pieSliceColors = resolvePieSliceColors(
+    chartData.length,
+    axisConfig.visualConfig,
   );
 
   if (!primaryYAxis) {
@@ -56,21 +68,26 @@ function ChartRenderer({ result, config, className }: ChartRendererProps) {
     return String(value);
   };
 
-  if (config.chartType === "pie") {
+  if (axisConfig.chartType === "pie") {
     return (
       <ChartContainer config={chartConfig} className={className}>
         <PieChart>
           <ChartTooltip
             content={
               <ChartTooltipContent
-                formatter={(value) => tooltipFormatter(value as number)}
+                nameKey={sliceLabelKey}
+                formatter={(value, name) => (
+                  <span className="font-mono">
+                    {String(name)}: {tooltipFormatter(value as number)}
+                  </span>
+                )}
               />
             }
           />
           <Pie
             data={chartData}
             dataKey={primaryYAxis}
-            nameKey={config.xAxisColumn}
+            nameKey={sliceLabelKey}
             cx="50%"
             cy="50%"
             innerRadius={48}
@@ -79,13 +96,31 @@ function ChartRenderer({ result, config, className }: ChartRendererProps) {
           >
             {chartData.map((entry, index) => (
               <Cell
-                key={String(entry[config.xAxisColumn])}
-                fill={colors[index % colors.length]}
+                key={`${String(entry[sliceLabelKey])}-${index}`}
+                fill={pieSliceColors[index % pieSliceColors.length]}
               />
             ))}
           </Pie>
           <ChartLegend
-            content={<ChartLegendContent nameKey={primaryYAxis} />}
+            verticalAlign="bottom"
+            content={({ payload }) => (
+              <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 pt-3">
+                {payload?.map((entry, index) => (
+                  <div
+                    key={`${entry.value}-${index}`}
+                    className="flex items-center gap-1.5 text-xs"
+                  >
+                    <span
+                      className="size-2 shrink-0 rounded-[2px]"
+                      style={{ backgroundColor: entry.color }}
+                    />
+                    <span className="text-muted-foreground">
+                      {String(entry.value ?? "")}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           />
         </PieChart>
       </ChartContainer>
@@ -96,7 +131,7 @@ function ChartRenderer({ result, config, className }: ChartRendererProps) {
     <>
       <CartesianGrid vertical={false} strokeDasharray="3 3" />
       <XAxis
-        dataKey={config.xAxisColumn}
+        dataKey={axisConfig.xAxisColumn}
         tickLine={false}
         axisLine={false}
         tickMargin={8}
@@ -119,7 +154,7 @@ function ChartRenderer({ result, config, className }: ChartRendererProps) {
     </>
   );
 
-  if (config.chartType === "line") {
+  if (axisConfig.chartType === "line") {
     return (
       <ChartContainer config={chartConfig} className={className}>
         <LineChart data={chartData} margin={{ left: 8, right: 8 }}>
@@ -140,7 +175,7 @@ function ChartRenderer({ result, config, className }: ChartRendererProps) {
     );
   }
 
-  if (config.chartType === "area") {
+  if (axisConfig.chartType === "area") {
     return (
       <ChartContainer config={chartConfig} className={className}>
         <AreaChart data={chartData} margin={{ left: 8, right: 8 }}>
@@ -154,11 +189,11 @@ function ChartRenderer({ result, config, className }: ChartRendererProps) {
               fill={`var(--color-${column})`}
               fillOpacity={0.22}
               strokeWidth={2}
-              stackId={config.categoryColumn ? "chart-stack" : undefined}
+              stackId={axisConfig.categoryColumn ? "chart-stack" : undefined}
             />
-          ))}
-        </AreaChart>
-      </ChartContainer>
+        ))}
+      </AreaChart>
+    </ChartContainer>
     );
   }
 
@@ -166,13 +201,13 @@ function ChartRenderer({ result, config, className }: ChartRendererProps) {
     <ChartContainer config={chartConfig} className={className}>
       <BarChart data={chartData} margin={{ left: 8, right: 8 }}>
         {sharedAxes}
-        {seriesKeys.map((column) => (
+        {seriesKeys.map((column, index) => (
           <Bar
             key={column}
             dataKey={column}
-            fill={`var(--color-${column})`}
+            fill={seriesColors[index % seriesColors.length]}
             radius={[4, 4, 0, 0]}
-            stackId={config.categoryColumn ? "chart-stack" : undefined}
+            stackId={axisConfig.categoryColumn ? "chart-stack" : undefined}
           />
         ))}
       </BarChart>

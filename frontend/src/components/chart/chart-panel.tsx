@@ -8,16 +8,18 @@ import {
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
 import {
+  type ReactNode,
   useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from "react";
 import { toast } from "sonner";
 import { ChartConfigForm } from "@/components/chart/chart-config";
 import { ChartRenderer } from "@/components/chart/chart-renderer";
+import { ChartSuggestions } from "@/components/chart/chart-suggestions";
+import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import {
   Collapsible,
@@ -29,20 +31,27 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   useChartConfigs,
+  useChartSuggest,
   useCreateChartConfig,
   useUpdateChartConfig,
 } from "@/hooks/use-chart";
+import { exportChartElementToPng } from "@/lib/chart-export";
 import {
+  analyzeChartDataset,
+  buildChartRecommendationMessage,
+  type ChartAxisConfig,
   exportChartDataToCsv,
   getChartExportColumns,
   isChartConfigValid,
+  mergeChartHints,
+  normalizeChartAxisConfig,
   suggestChartDefaults,
   transformQueryResultForChart,
-  type ChartAxisConfig,
 } from "@/lib/chart-utils";
 import { chart } from "@/lib/microcopy";
 import type {
   ChartConfigRecord,
+  ChartHints,
   ChartReferenceFilter,
   ChartType,
   QueryExecutionResponse,
@@ -56,6 +65,9 @@ type ChartPanelProps = {
   generatorMessageId?: string;
   sqlEditorTabId?: string;
   savedQueryId?: string;
+  chartHints?: ChartHints;
+  onRecommendationClick?: (message: string) => void | Promise<void>;
+  isRecommendationPending?: boolean;
 };
 
 const CHART_TYPES: { value: ChartType; label: string }[] = [
@@ -92,14 +104,55 @@ function ChartPanel({
   generatorMessageId,
   sqlEditorTabId,
   savedQueryId,
+  chartHints,
+  onRecommendationClick,
+  isRecommendationPending = false,
 }: ChartPanelProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState("table");
   const [configOpen, setConfigOpen] = useState(false);
   const [configId, setConfigId] = useState<string | null>(null);
   const [chartConfig, setChartConfig] = useState<ChartAxisConfig>(() =>
-    suggestChartDefaults(result.columns),
+    normalizeChartAxisConfig(
+      suggestChartDefaults(
+        result.columns,
+        result.rows,
+        chartHints?.suggested_chart,
+      ),
+      result.columns,
+      result.rows,
+    ),
   );
+
+  const localAnalysis = useMemo(
+    () =>
+      analyzeChartDataset(
+        result.columns,
+        result.rows,
+        result.row_count ?? result.rows.length,
+      ),
+    [result.columns, result.row_count, result.rows],
+  );
+
+  const suggestQuery = useChartSuggest(
+    {
+      columns: result.columns,
+      rows: result.rows,
+      row_count: result.row_count ?? result.rows.length,
+    },
+    activeTab === "chart",
+  );
+
+  const datasetAnalysis = useMemo(() => {
+    const remote = suggestQuery.data;
+    const base = remote ?? localAnalysis;
+    return mergeChartHints(base, chartHints);
+  }, [chartHints, localAnalysis, suggestQuery.data]);
+
+  const isChartable = datasetAnalysis.chartable;
+  const isLargeDataset = datasetAnalysis.large_dataset;
+  const aggregationSuggestions = datasetAnalysis.suggested_aggregations;
+  const filterSuggestions = datasetAnalysis.suggested_filters;
 
   const referenceFilter = useMemo<ChartReferenceFilter>(
     () => ({
@@ -127,16 +180,61 @@ function ChartPanel({
     const saved = chartConfigsQuery.data?.[0];
     if (saved) {
       setConfigId(saved.id);
-      setChartConfig(recordToAxisConfig(saved));
+      setChartConfig(
+        normalizeChartAxisConfig(
+          recordToAxisConfig(saved),
+          result.columns,
+          result.rows,
+        ),
+      );
       return;
     }
 
     setConfigId(null);
-    setChartConfig(suggestChartDefaults(result.columns));
-  }, [chartConfigsQuery.data, chartConfigsQuery.isLoading, result.columns]);
+    setChartConfig(
+      normalizeChartAxisConfig(
+        suggestChartDefaults(
+          result.columns,
+          result.rows,
+          chartHints?.suggested_chart,
+        ),
+        result.columns,
+        result.rows,
+      ),
+    );
+  }, [
+    chartConfigsQuery.data,
+    chartConfigsQuery.isLoading,
+    chartHints?.suggested_chart,
+    result.columns,
+    result.rows,
+  ]);
+
+  useEffect(() => {
+    if (suggestQuery.isError) {
+      toast.error(chart.suggestFailed);
+    }
+  }, [suggestQuery.isError]);
+
+  const handleRecommendationSelect = useCallback(
+    async (suggestion: string) => {
+      if (isRecommendationPending) {
+        toast.message(chart.recommendationSending);
+        return;
+      }
+
+      if (!onRecommendationClick) {
+        toast.message(chart.recommendationUnavailable);
+        return;
+      }
+
+      await onRecommendationClick(buildChartRecommendationMessage(suggestion));
+    },
+    [isRecommendationPending, onRecommendationClick],
+  );
 
   const handleSave = useCallback(async () => {
-    if (!isChartConfigValid(chartConfig) || !canPersist) return;
+    if (!isChartConfigValid(chartConfig) || !canPersist || !isChartable) return;
 
     const payload = axisConfigToPayload(chartConfig);
 
@@ -155,33 +253,48 @@ function ChartPanel({
     chartConfig,
     configId,
     createChart,
+    isChartable,
     referenceFilter,
     updateChart,
   ]);
 
+  const chartReady = isChartable && isChartConfigValid(chartConfig);
+
   const handleExportPng = useCallback(async () => {
-    if (!chartRef.current) return;
+    if (!chartRef.current || !chartReady) {
+      toast.error(chart.invalidConfig);
+      return;
+    }
+
+    if (activeTab !== "chart") {
+      setActiveTab("chart");
+      await new Promise((resolve) => setTimeout(resolve, 150));
+    }
+
+    const target = chartRef.current;
+    if (!target) {
+      toast.error(chart.exportFailed);
+      return;
+    }
 
     try {
-      const { default: html2canvas } = await import("html2canvas");
-      const canvas = await html2canvas(chartRef.current, {
-        backgroundColor: null,
-        scale: 2,
-        useCORS: true,
-      });
-
-      const link = document.createElement("a");
-      link.download = `grafik-${chartConfig.chartType}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
+      await exportChartElementToPng(
+        target,
+        `grafik-${chartConfig.chartType}.png`,
+      );
       toast.success(chart.exportPngSuccess);
     } catch {
       toast.error(chart.exportFailed);
     }
-  }, [chartConfig.chartType]);
+  }, [
+    activeTab,
+    chartConfig.chartType,
+    chartReady,
+    isChartable,
+  ]);
 
   const handleExportCsv = useCallback(() => {
-    if (!isChartConfigValid(chartConfig)) {
+    if (!isChartConfigValid(chartConfig) || !isChartable) {
       toast.error(chart.invalidConfig);
       return;
     }
@@ -190,9 +303,10 @@ function ChartPanel({
     const columns = getChartExportColumns(chartConfig);
     exportChartDataToCsv(data, columns);
     toast.success(chart.exportCsvSuccess);
-  }, [chartConfig, result]);
+  }, [chartConfig, isChartable, result]);
 
-  const chartReady = isChartConfigValid(chartConfig);
+  const recommendationDisabled = isRecommendationPending;
+  const recommendationActionable = Boolean(onRecommendationClick);
 
   return (
     <div className={cn("flex min-h-0 flex-col", className)}>
@@ -216,14 +330,14 @@ function ChartPanel({
 
         <TabsContent
           value="table"
-          className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+          className="mt-0 flex min-h-0 flex-1 flex-col overflow-hidden data-[state=inactive]:hidden"
         >
           {tableView}
         </TabsContent>
 
         <TabsContent
           value="chart"
-          className="mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
+          className="mt-0 flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain data-[state=inactive]:hidden"
         >
           <Collapsible open={configOpen} onOpenChange={setConfigOpen}>
             <div className="sticky top-0 z-10 flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/60 bg-card/95 px-3 py-2 backdrop-blur-sm">
@@ -234,6 +348,7 @@ function ChartPanel({
                   variant="outline"
                   size="sm"
                   value={chartConfig.chartType}
+                  disabled={!isChartable}
                   onValueChange={(value) => {
                     if (value) {
                       setChartConfig((current) => ({
@@ -249,6 +364,7 @@ function ChartPanel({
                       key={item.value}
                       value={item.value}
                       className="px-2.5 font-mono text-xs"
+                      disabled={!isChartable}
                     >
                       {item.label}
                     </ToggleGroupItem>
@@ -258,14 +374,17 @@ function ChartPanel({
 
               <div className="flex flex-wrap items-center gap-1.5">
                 <CollapsibleTrigger asChild>
-                  <Button type="button" variant="outline" size="xs">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xs"
+                    disabled={!isChartable}
+                  >
                     <HugeiconsIcon
                       icon={configOpen ? ArrowUp01Icon : ArrowDown01Icon}
                       strokeWidth={2}
                     />
-                    {configOpen
-                      ? chart.configureHide
-                      : chart.configureToggle}
+                    {configOpen ? chart.configureHide : chart.configureToggle}
                   </Button>
                 </CollapsibleTrigger>
                 <Button
@@ -273,6 +392,7 @@ function ChartPanel({
                   variant="outline"
                   size="xs"
                   onClick={() => void handleExportPng()}
+                  disabled={!chartReady}
                 >
                   {chart.exportPng}
                 </Button>
@@ -281,6 +401,7 @@ function ChartPanel({
                   variant="outline"
                   size="xs"
                   onClick={handleExportCsv}
+                  disabled={!chartReady}
                 >
                   {chart.exportCsv}
                 </Button>
@@ -289,7 +410,7 @@ function ChartPanel({
                     type="button"
                     size="xs"
                     onClick={() => void handleSave()}
-                    disabled={isSaving}
+                    disabled={isSaving || !chartReady}
                   >
                     {isSaving ? chart.savingConfig : chart.saveConfig}
                   </Button>
@@ -297,32 +418,81 @@ function ChartPanel({
               </div>
             </div>
 
-            <div className="shrink-0 p-3">
-              {chartReady ? (
-                <div
-                  ref={chartRef}
-                  className="rounded-xl border border-border/60 bg-card p-3"
+            <div className="shrink-0 space-y-3 p-3">
+              {!isChartable ? (
+                <EmptyState
+                  icon={Analytics01Icon}
+                  title={chart.nonChartableTitle}
+                  description={chart.nonChartableDescription}
+                  className="rounded-xl border border-dashed border-border/60 bg-muted/10 py-10"
                 >
-                  <ChartRenderer
-                    result={result}
-                    config={chartConfig}
-                    className="h-[min(48vh,380px)] min-h-[220px] w-full"
+                  <ChartSuggestions
+                    title={chart.aggregationHintTitle}
+                    suggestions={aggregationSuggestions}
+                    onSelect={(suggestion) =>
+                      void handleRecommendationSelect(suggestion)
+                    }
+                    disabled={recommendationDisabled}
+                    actionable={recommendationActionable}
+                    isLoading={
+                      suggestQuery.isLoading && !aggregationSuggestions.length
+                    }
+                    variant="aggregation"
+                    className="w-full max-w-xl border-dashed"
                   />
-                </div>
+                </EmptyState>
               ) : (
-                <p className="rounded-xl border border-dashed border-border/60 px-4 py-10 text-center text-muted-foreground text-sm leading-relaxed">
-                  {chart.emptyChart}
-                </p>
+                <>
+                  {isLargeDataset ? (
+                    <div className="space-y-2">
+                      <p className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2 text-amber-800 text-xs leading-relaxed dark:text-amber-200">
+                        {chart.largeDatasetNotice}
+                      </p>
+                      <ChartSuggestions
+                        title={chart.filterHintTitle}
+                        suggestions={filterSuggestions}
+                        onSelect={(suggestion) =>
+                          void handleRecommendationSelect(suggestion)
+                        }
+                        disabled={recommendationDisabled}
+                        actionable={recommendationActionable}
+                        isLoading={
+                          suggestQuery.isLoading && !filterSuggestions.length
+                        }
+                        variant="filter"
+                      />
+                    </div>
+                  ) : null}
+
+                  {chartReady ? (
+                    <div
+                      ref={chartRef}
+                      className="rounded-xl border border-border/60 bg-card p-3 transition-opacity duration-200"
+                    >
+                      <ChartRenderer
+                        result={result}
+                        config={chartConfig}
+                        className="h-[min(48vh,380px)] min-h-[220px] w-full"
+                      />
+                    </div>
+                  ) : (
+                    <p className="rounded-xl border border-dashed border-border/60 px-4 py-10 text-center text-muted-foreground text-sm leading-relaxed">
+                      {chart.emptyChart}
+                    </p>
+                  )}
+                </>
               )}
             </div>
 
             <CollapsibleContent className="border-t border-border/60">
               <ChartConfigForm
                 columns={result.columns}
+                rows={result.rows}
                 config={chartConfig}
                 onChange={setChartConfig}
                 showToolbar={false}
                 showTypeSelector={false}
+                disabled={!isChartable}
                 className="border-b-0"
               />
             </CollapsibleContent>

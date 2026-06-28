@@ -20,7 +20,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   CHART_PALETTE_COLORS,
   type ChartAxisConfig,
-  isNumericColumnType,
+  findChartableNumericColumns,
 } from "@/lib/chart-utils";
 import { chart } from "@/lib/microcopy";
 import type { ChartColorPalette, ChartType, QueryColumn } from "@/lib/types";
@@ -28,6 +28,7 @@ import { cn } from "@/lib/utils";
 
 type ChartConfigFormProps = {
   columns: QueryColumn[];
+  rows?: unknown[][];
   config: ChartAxisConfig;
   onChange: (config: ChartAxisConfig) => void;
   onSave?: () => void;
@@ -37,6 +38,7 @@ type ChartConfigFormProps = {
   canPersist?: boolean;
   showToolbar?: boolean;
   showTypeSelector?: boolean;
+  disabled?: boolean;
   className?: string;
 };
 
@@ -56,6 +58,7 @@ const PALETTE_OPTIONS: { value: ChartColorPalette; label: string }[] = [
 
 function ChartConfigForm({
   columns,
+  rows = [],
   config,
   onChange,
   onSave,
@@ -65,6 +68,7 @@ function ChartConfigForm({
   canPersist = false,
   showToolbar = true,
   showTypeSelector = true,
+  disabled = false,
   className,
 }: ChartConfigFormProps) {
   const columnNames = useMemo(
@@ -73,11 +77,8 @@ function ChartConfigForm({
   );
 
   const numericColumns = useMemo(
-    () =>
-      columns
-        .filter((column) => isNumericColumnType(column.type))
-        .map((column) => column.name),
-    [columns],
+    () => findChartableNumericColumns(columns, rows),
+    [columns, rows],
   );
 
   const yAxisOptions = numericColumns.length > 0 ? numericColumns : columnNames;
@@ -104,7 +105,8 @@ function ChartConfigForm({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 border-b border-border/60 bg-muted/10 px-3 py-3",
+        "flex flex-col gap-3 border-b border-border/60 bg-muted/10 px-3 py-3 transition-opacity",
+        disabled && "pointer-events-none opacity-50",
         className,
       )}
     >
