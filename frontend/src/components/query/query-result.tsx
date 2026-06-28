@@ -16,10 +16,11 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   type SortingState,
-  type VisibilityState,
   useReactTable,
+  type VisibilityState,
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
+import { ChartPanel } from "@/components/chart/chart-panel";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -46,10 +47,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChartPanel } from "@/components/chart/chart-panel";
 import { query } from "@/lib/microcopy";
 import { formatCellValue, rowsToRecords } from "@/lib/query-utils";
-import type { QueryColumn, QueryExecutionResponse } from "@/lib/types";
+import type {
+  ChartHints,
+  QueryColumn,
+  QueryExecutionResponse,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type QueryResultProps = {
@@ -58,6 +62,9 @@ type QueryResultProps = {
   generatorMessageId?: string;
   sqlEditorTabId?: string;
   savedQueryId?: string;
+  chartHints?: ChartHints;
+  onRecommendationClick?: (message: string) => void | Promise<void>;
+  isRecommendationPending?: boolean;
 };
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const;
@@ -346,6 +353,9 @@ function QueryResult({
   generatorMessageId,
   sqlEditorTabId,
   savedQueryId,
+  chartHints,
+  onRecommendationClick,
+  isRecommendationPending,
 }: QueryResultProps) {
   return (
     <ChartPanel
@@ -354,6 +364,9 @@ function QueryResult({
       generatorMessageId={generatorMessageId}
       sqlEditorTabId={sqlEditorTabId}
       savedQueryId={savedQueryId}
+      chartHints={chartHints}
+      onRecommendationClick={onRecommendationClick}
+      isRecommendationPending={isRecommendationPending}
       tableView={
         <QueryResultTable result={result} className="min-h-0 flex-1" />
       }

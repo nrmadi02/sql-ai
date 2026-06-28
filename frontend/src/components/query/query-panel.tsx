@@ -2,13 +2,14 @@
 
 import { Edit02Icon, PlayIcon, TableIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "@hugeicons/react";
+import { useMemo } from "react";
 import { QueryWorkspaceDialog } from "@/components/query/query-workspace-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useQueryWorkspace } from "@/hooks/use-query-workspace";
 import { query } from "@/lib/microcopy";
 import { previewSql } from "@/lib/query-utils";
-import type { DatasourceType, GeneratorMessage } from "@/lib/types";
+import type { ChartHints, DatasourceType, GeneratorMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type QueryPanelProps = {
@@ -17,6 +18,8 @@ type QueryPanelProps = {
   dbType?: DatasourceType;
   sessionId: string;
   className?: string;
+  onRecommendationClick?: (message: string) => void | Promise<void>;
+  isRecommendationPending?: boolean;
 };
 
 function QueryPanel({
@@ -25,12 +28,30 @@ function QueryPanel({
   dbType,
   sessionId,
   className,
+  onRecommendationClick,
+  isRecommendationPending,
 }: QueryPanelProps) {
   const workspace = useQueryWorkspace({ message, datasourceId, sessionId });
   const sqlPreview = previewSql(workspace.sql);
   const lineCount = workspace.sql.trim().split("\n").length;
   const hasResult = Boolean(workspace.result);
   const hasError = Boolean(workspace.error);
+  const chartHints = useMemo<ChartHints | undefined>(() => {
+    const metadata = message.ai_metadata;
+    if (!metadata) return undefined;
+
+    return {
+      suggested_aggregations: metadata.suggested_aggregations,
+      suggested_filters: metadata.suggested_filters,
+      suggested_chart: metadata.suggested_chart as ChartHints["suggested_chart"],
+    };
+  }, [message.ai_metadata]);
+
+  const handleRecommendationClick = async (content: string) => {
+    if (!onRecommendationClick) return;
+    await onRecommendationClick(content);
+    workspace.setDialogOpen(false);
+  };
 
   return (
     <>
@@ -135,6 +156,11 @@ function QueryPanel({
         canRun={workspace.canRun}
         error={workspace.error}
         result={workspace.result}
+        chartHints={chartHints}
+        onRecommendationClick={
+          onRecommendationClick ? handleRecommendationClick : undefined
+        }
+        isRecommendationPending={isRecommendationPending}
       />
     </>
   );

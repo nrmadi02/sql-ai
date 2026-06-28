@@ -2,6 +2,7 @@
 
 import { BubbleChatSpark01Icon } from "@hugeicons/core-free-icons";
 import { useEffect, useRef } from "react";
+import { toast } from "sonner";
 import { EmptyState } from "@/components/empty-state";
 import { useActiveDatasource } from "@/components/providers/datasource-provider";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,7 +11,7 @@ import {
   useGeneratorSession,
   useSendGeneratorMessage,
 } from "@/hooks/use-generator";
-import { generator } from "@/lib/microcopy";
+import { chart, generator } from "@/lib/microcopy";
 import type { GeneratorMessage } from "@/lib/types";
 import { GeneratorInput } from "./generator-input";
 import { GeneratorMessageItem } from "./generator-message";
@@ -56,12 +57,37 @@ function GeneratorWindow({ sessionId }: GeneratorWindowProps) {
   }, [scrollKey]);
 
   const handleSend = async (content: string, tables: string[]) => {
-    if (!activeDatasourceId) return;
+    if (!activeDatasourceId) {
+      toast.error("Pilih datasource aktif dulu.");
+      return;
+    }
+    if (isStreaming) {
+      toast.message(chart.recommendationSending);
+      return;
+    }
+
     await sendMessage({
       content,
       tables,
       datasource_id: activeDatasourceId,
     });
+  };
+
+  const handleRecommendationClick = async (
+    content: string,
+    tables: string[] = [],
+  ) => {
+    if (!activeDatasourceId || isStreaming) {
+      await handleSend(content, tables);
+      return;
+    }
+
+    await sendMessage({
+      content,
+      tables,
+      datasource_id: activeDatasourceId,
+    });
+    toast.success(chart.recommendationSent);
   };
 
   const streamingMessage: GeneratorMessage | null = isStreaming
@@ -102,6 +128,13 @@ function GeneratorWindow({ sessionId }: GeneratorWindowProps) {
                   dbType={activeDatasource?.db_type}
                   datasourceId={activeDatasourceId}
                   sessionId={sessionId}
+                  onRecommendationClick={(content) =>
+                    handleRecommendationClick(
+                      content,
+                      message.referenced_tables ?? [],
+                    )
+                  }
+                  isRecommendationPending={isStreaming}
                 />
               ))}
               {streamingMessage ? (
@@ -113,6 +146,7 @@ function GeneratorWindow({ sessionId }: GeneratorWindowProps) {
                   isStreaming
                   streamingContent={streamingContent}
                   streamingMetadata={streamingMetadata}
+                  isRecommendationPending
                 />
               ) : null}
             </>

@@ -15,7 +15,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
 import { query } from "@/lib/microcopy";
-import type { DatasourceType, QueryExecutionResponse } from "@/lib/types";
+import type {
+  ChartHints,
+  DatasourceType,
+  QueryExecutionResponse,
+} from "@/lib/types";
 import { cn } from "@/lib/utils";
 
 type QueryWorkspaceDialogProps = {
@@ -31,6 +35,9 @@ type QueryWorkspaceDialogProps = {
   canRun: boolean;
   error: string | null;
   result: QueryExecutionResponse | null;
+  chartHints?: ChartHints;
+  onRecommendationClick?: (message: string) => void | Promise<void>;
+  isRecommendationPending?: boolean;
 };
 
 function QueryResultSkeleton() {
@@ -61,6 +68,9 @@ function QueryWorkspaceDialog({
   canRun,
   error,
   result,
+  chartHints,
+  onRecommendationClick,
+  isRecommendationPending,
 }: QueryWorkspaceDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -135,6 +145,9 @@ function QueryWorkspaceDialog({
                 result={result}
                 className="min-h-0 flex-1"
                 generatorMessageId={generatorMessageId}
+                chartHints={chartHints}
+                onRecommendationClick={onRecommendationClick}
+                isRecommendationPending={isRecommendationPending}
               />
             ) : (
               <div className="flex flex-1 items-center justify-center px-6 py-10">

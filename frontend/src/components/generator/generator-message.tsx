@@ -5,6 +5,7 @@ import { HugeiconsIcon } from "@hugeicons/react";
 import { QueryPanel } from "@/components/query/query-panel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Spinner } from "@/components/ui/spinner";
+import { sanitizeAssistantDisplayContent } from "@/lib/generator-utils";
 import { generator } from "@/lib/microcopy";
 import type { AIMetadata, DatasourceType, GeneratorMessage } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,8 @@ type GeneratorMessageItemProps = {
   isStreaming?: boolean;
   streamingContent?: string;
   streamingMetadata?: AIMetadata | null;
+  onRecommendationClick?: (message: string) => void | Promise<void>;
+  isRecommendationPending?: boolean;
 };
 
 function MessageAvatar({
@@ -61,9 +64,15 @@ function GeneratorMessageItem({
   isStreaming = false,
   streamingContent,
   streamingMetadata = null,
+  onRecommendationClick,
+  isRecommendationPending = false,
 }: GeneratorMessageItemProps) {
   const isUser = message.role === "user";
-  const displayContent = isStreaming ? streamingContent || "" : message.content;
+  const rawContent = isStreaming ? streamingContent || "" : message.content;
+  const displayContent =
+    message.role === "assistant"
+      ? sanitizeAssistantDisplayContent(rawContent)
+      : rawContent;
   const sql = message.generated_sql || message.edited_sql;
   const aiMetadata = isStreaming
     ? (streamingMetadata ?? message.ai_metadata)
@@ -127,6 +136,8 @@ function GeneratorMessageItem({
               datasourceId={datasourceId}
               dbType={dbType}
               sessionId={sessionId}
+              onRecommendationClick={onRecommendationClick}
+              isRecommendationPending={isRecommendationPending}
             />
           </div>
         ) : null}
