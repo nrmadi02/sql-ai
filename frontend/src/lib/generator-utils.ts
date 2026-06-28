@@ -53,6 +53,48 @@ export function detectTableMentionQuery(
   };
 }
 
+function normalizeAssistantJSONCandidate(raw: string): string {
+  let candidate = raw.trim();
+  const lower = candidate.toLowerCase();
+  if (lower.startsWith("chart ") || lower.startsWith("json ")) {
+    candidate = candidate.slice(candidate.indexOf(" ") + 1).trim();
+  }
+  return candidate;
+}
+
+export function sanitizeAssistantDisplayContent(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return trimmed;
+
+  const firstLine =
+    trimmed
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line.length > 0) ?? trimmed;
+
+  const candidates = [
+    normalizeAssistantJSONCandidate(trimmed),
+    normalizeAssistantJSONCandidate(firstLine),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as { content?: unknown };
+      if (typeof parsed.content === "string" && parsed.content.trim()) {
+        return parsed.content.trim();
+      }
+    } catch {
+      // ignore invalid JSON candidates
+    }
+  }
+
+  return trimmed
+    .replace(/```chart[\s\S]*?```/gi, "")
+    .replace(/^\s*\{[^{}]*"chart_type"[\s\S]*?\}\s*$/gim, "")
+    .replace(/^\s*chart\s+\{/gim, "{")
+    .trim();
+}
+
 export function insertTableMention(
   value: string,
   start: number,

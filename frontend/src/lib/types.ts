@@ -154,6 +154,9 @@ export type AIMetadata = {
   prompt_tokens?: number;
   completion_tokens?: number;
   total_tokens?: number;
+  suggested_chart?: SuggestedChartConfig;
+  suggested_filters?: string[];
+  suggested_aggregations?: string[];
 };
 
 export type GeneratorMessage = {
@@ -364,4 +367,34 @@ export type ChartReferenceFilter = {
   saved_query_id?: string;
   generator_message_id?: string;
   sql_editor_tab_id?: string;
+};
+
+export type ChartSuggestInput = {
+  columns: QueryColumn[];
+  rows: unknown[][];
+  row_count: number;
+};
+
+export type ChartSuggestResult = {
+  chartable: boolean;
+  large_dataset: boolean;
+  numeric_columns: string[];
+  label_columns: string[];
+  suggested_filters: string[];
+  suggested_aggregations: string[];
+};
+
+export type SuggestedChartConfig = {
+  chart_type?: ChartType;
+  x_axis_column?: string;
+  y_axis_columns?: string[];
+  category_column?: string | null;
+};
+
+export type ChartHints = {
+  chartable?: boolean;
+  large_dataset?: boolean;
+  suggested_aggregations?: string[];
+  suggested_filters?: string[];
+  suggested_chart?: SuggestedChartConfig;
 };

@@ -7,6 +7,8 @@ import { toasts } from "@/lib/microcopy";
 import type {
   ChartConfigRecord,
   ChartReferenceFilter,
+  ChartSuggestInput,
+  ChartSuggestResult,
   CreateChartConfigInput,
   UpdateChartConfigInput,
 } from "@/lib/types";
@@ -119,6 +121,29 @@ export function useUpdateChartConfig(id: string) {
     onError: (error: Error) => {
       toast.error(error.message);
     },
+  });
+}
+
+export function useChartSuggest(
+  input: ChartSuggestInput | null,
+  enabled = true,
+) {
+  return useQuery({
+    queryKey: [
+      "charts",
+      "suggest",
+      input?.columns,
+      input?.row_count,
+      input?.rows.length,
+    ] as const,
+    queryFn: () => {
+      if (!input) {
+        throw new Error("Chart suggest input is required");
+      }
+      return api.post<ChartSuggestResult>("/api/v1/charts/suggest", input);
+    },
+    enabled: enabled && Boolean(input?.columns.length),
+    staleTime: 30_000,
   });
 }
 

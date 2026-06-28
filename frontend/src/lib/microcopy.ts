@@ -231,6 +231,20 @@ export const chart = {
   typeArea: "Area",
   configureToggle: "Atur sumbu & warna",
   configureHide: "Sembunyikan pengaturan",
+  nonChartableTitle: "Data belum siap untuk grafik",
+  nonChartableDescription:
+    "Data ini tidak memiliki angka untuk dikalkulasi grafik.",
+  aggregationHintTitle: "Saran agregasi dari AI",
+  filterHintTitle: "Dataset besar, coba filter ini",
+  largeDatasetNotice:
+    "Hasil query punya lebih dari 100 baris. Grafik bisa terlihat padat.",
+  recommendationChipLabel: "Terapkan",
+  recommendationSending: "Tunggu respons AI selesai dulu.",
+  recommendationSent: "Rekomendasi dikirim ke AI. Lihat respons di bawah.",
+  recommendationUnavailable:
+    "Rekomendasi AI hanya tersedia di halaman Generator.",
+  suggestFailed: "Gagal menganalisis data untuk grafik",
+  analyzingDataset: "Menganalisis data…",
 } as const;
 
 export const toasts = {

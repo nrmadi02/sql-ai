@@ -1,11 +1,17 @@
 import { formatCellValue, rowsToRecords } from "@/lib/query-utils";
 import type {
   ChartColorPalette,
+  ChartHints,
+  ChartSuggestResult,
   ChartType,
   ChartVisualConfig,
   QueryColumn,
   QueryExecutionResponse,
 } from "@/lib/types";
+
+const LARGE_DATASET_ROW_THRESHOLD = 100;
+
+const TEMPORAL_TYPE_HINTS = ["date", "time", "timestamp"] as const;
 
 const NUMERIC_TYPE_HINTS = [
   "int",
@@ -17,6 +23,17 @@ const NUMERIC_TYPE_HINTS = [
   "real",
   "money",
   "number",
+] as const;
+
+const LABEL_TYPE_HINTS = [
+  "char",
+  "text",
+  "uuid",
+  "json",
+  "bool",
+  "bytea",
+  "blob",
+  "string",
 ] as const;
 
 export const CHART_PALETTE_COLORS: Record<ChartColorPalette, string[]> = {
@@ -63,7 +80,326 @@ export function isNumericColumnType(type: string): boolean {
   return NUMERIC_TYPE_HINTS.some((hint) => normalized.includes(hint));
 }
 
-export function suggestChartDefaults(columns: QueryColumn[]): ChartAxisConfig {
+export function isLabelColumnType(type: string): boolean {
+  const normalized = type.trim().toLowerCase();
+  if (!normalized) return false;
+  return LABEL_TYPE_HINTS.some((hint) => normalized.includes(hint));
+}
+
+export function isTemporalColumnType(type: string): boolean {
+  const normalized = type.toLowerCase();
+  return TEMPORAL_TYPE_HINTS.some((hint) => normalized.includes(hint));
+}
+
+export function looksLikeIDColumn(name: string): boolean {
+  const normalized = name.trim().toLowerCase();
+  return normalized === "id" || normalized.endsWith("_id");
+}
+
+function coerceNumericValue(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+  if (typeof value === "boolean") return value ? 1 : 0;
+
+  const asNumber = Number(value);
+  if (!Number.isNaN(asNumber) && String(value).trim() !== "") {
+    return asNumber;
+  }
+
+  return null;
+}
+
+function columnHasChartableNumericValues(
+  rows: unknown[][],
+  columnIndex: number,
+): boolean {
+  if (!rows.length) return true;
+
+  const sampleSize = Math.min(rows.length, 20);
+  let validCount = 0;
+
+  for (let rowIndex = 0; rowIndex < sampleSize; rowIndex += 1) {
+    const row = rows[rowIndex];
+    if (!Array.isArray(row) || columnIndex >= row.length) continue;
+    if (coerceNumericValue(row[columnIndex]) !== null) {
+      validCount += 1;
+    }
+  }
+
+  return validCount > 0;
+}
+
+export function findChartableNumericColumns(
+  columns: QueryColumn[],
+  rows: unknown[][],
+): string[] {
+  return columns
+    .filter((column, index) => isChartableNumericColumn(column, rows, index))
+    .map((column) => column.name);
+}
+
+function isChartableNumericColumn(
+  column: QueryColumn,
+  rows: unknown[][],
+  columnIndex: number,
+): boolean {
+  if (looksLikeIDColumn(column.name)) return false;
+  if (isTemporalColumnType(column.type)) return false;
+  if (!columnHasChartableNumericValues(rows, columnIndex)) return false;
+  if (isNumericColumnType(column.type)) return true;
+  if (isLabelColumnType(column.type)) return false;
+  return true;
+}
+
+function findLabelColumns(
+  columns: QueryColumn[],
+  numericColumns: string[],
+): string[] {
+  const numericSet = new Set(
+    numericColumns.map((column) => column.toLowerCase()),
+  );
+  return columns
+    .filter((column) => !numericSet.has(column.name.toLowerCase()))
+    .map((column) => column.name);
+}
+
+function findTemporalColumn(columns: QueryColumn[]): string {
+  const typed = columns.find((column) => isTemporalColumnType(column.type));
+  if (typed) return typed.name;
+
+  return (
+    columns.find((column) => {
+      const name = column.name.toLowerCase();
+      return (
+        name.includes("date") ||
+        name.includes("time") ||
+        name.includes("tanggal") ||
+        name.includes("bulan") ||
+        name.includes("tahun")
+      );
+    })?.name ?? ""
+  );
+}
+
+function firstNonIDColumn(columns: string[]): string {
+  return columns.find((column) => !looksLikeIDColumn(column)) ?? "";
+}
+
+function firstMeaningfulNumericColumn(columns: string[]): string {
+  return firstNonIDColumn(columns) || columns[0] || "";
+}
+
+function uniqueSuggestions(items: string[]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const item of items) {
+    const text = item.trim();
+    if (!text) continue;
+    const key = text.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push(text);
+  }
+
+  return result;
+}
+
+function buildSuggestedAggregations(
+  columns: QueryColumn[],
+  labelColumns: string[],
+  numericColumns: string[],
+): string[] {
+  const suggestions: string[] = [];
+  const primaryLabel = firstNonIDColumn(labelColumns) || columns[0]?.name || "";
+  const temporalColumn = findTemporalColumn(columns);
+  const primaryNumeric = firstMeaningfulNumericColumn(numericColumns);
+
+  if (temporalColumn) {
+    suggestions.push(`Hitung jumlah baris per ${temporalColumn}`);
+  }
+
+  if (primaryLabel) {
+    suggestions.push(`Hitung jumlah baris per ${primaryLabel}`);
+  }
+
+  if (primaryLabel && primaryNumeric) {
+    suggestions.push(`Hitung total ${primaryNumeric} per ${primaryLabel}`);
+  }
+
+  if (!suggestions.length) {
+    suggestions.push(
+      "Kelompokkan data dengan GROUP BY dan fungsi agregasi COUNT/SUM",
+    );
+  }
+
+  return uniqueSuggestions(suggestions);
+}
+
+function buildSuggestedFilters(
+  columns: QueryColumn[],
+  numericColumns: string[],
+  rowCount: number,
+): string[] {
+  const suggestions: string[] = [];
+  const primaryNumeric = firstMeaningfulNumericColumn(numericColumns);
+  const temporalColumn = findTemporalColumn(columns);
+
+  if (primaryNumeric) {
+    suggestions.push(`Tampilkan Top 10 berdasarkan ${primaryNumeric}`);
+  }
+
+  if (temporalColumn) {
+    suggestions.push(`Kelompokkan data per ${temporalColumn}`);
+  }
+
+  suggestions.push(`Batasi hasil ke 50 baris dari ${rowCount} baris`);
+
+  return uniqueSuggestions(suggestions);
+}
+
+export function analyzeChartDataset(
+  columns: QueryColumn[],
+  rows: unknown[][],
+  rowCount = rows.length,
+): ChartSuggestResult {
+  const numericColumns = findChartableNumericColumns(columns, rows);
+  const labelColumns = findLabelColumns(columns, numericColumns);
+  const chartable = numericColumns.length > 0;
+  const largeDataset = rowCount > LARGE_DATASET_ROW_THRESHOLD;
+
+  return {
+    chartable,
+    large_dataset: largeDataset,
+    numeric_columns: numericColumns,
+    label_columns: labelColumns,
+    suggested_aggregations: chartable
+      ? []
+      : buildSuggestedAggregations(columns, labelColumns, numericColumns),
+    suggested_filters: largeDataset
+      ? buildSuggestedFilters(columns, numericColumns, rowCount)
+      : [],
+  };
+}
+
+export function mergeChartHints(
+  analysis: ChartSuggestResult,
+  hints?: ChartHints,
+): ChartSuggestResult {
+  if (!hints) return analysis;
+
+  const chartable = hints.chartable ?? analysis.chartable;
+
+  return {
+    chartable,
+    large_dataset: hints.large_dataset ?? analysis.large_dataset,
+    numeric_columns: analysis.numeric_columns,
+    label_columns: analysis.label_columns,
+    suggested_aggregations: chartable
+      ? []
+      : uniqueSuggestions([
+          ...(hints.suggested_aggregations ?? []),
+          ...analysis.suggested_aggregations,
+        ]),
+    suggested_filters: analysis.large_dataset
+      ? uniqueSuggestions([
+          ...(hints.suggested_filters ?? []),
+          ...analysis.suggested_filters,
+        ])
+      : [],
+  };
+}
+
+export function buildChartRecommendationMessage(suggestion: string): string {
+  return `Tolong ubah query SQL sebelumnya agar hasilnya bisa divisualisasikan sebagai grafik. Rekomendasi: ${suggestion}`;
+}
+
+export function resolvePieSliceColors(
+  sliceCount: number,
+  visualConfig?: ChartVisualConfig,
+): string[] {
+  const palette =
+    CHART_PALETTE_COLORS[visualConfig?.color_palette ?? "default"];
+  return Array.from({ length: sliceCount }, (_, index) => {
+    return palette[index % palette.length];
+  });
+}
+
+export function normalizeChartAxisConfig(
+  config: ChartAxisConfig,
+  columns: QueryColumn[],
+  rows: unknown[][],
+): ChartAxisConfig {
+  const numericColumnNames = findChartableNumericColumns(columns, rows);
+  const numericSet = new Set(
+    numericColumnNames.map((column) => column.toLowerCase()),
+  );
+
+  const xIsNumeric = numericSet.has(config.xAxisColumn.toLowerCase());
+  const primaryYAxis = config.yAxisColumns[0] ?? "";
+  const yIsLabel =
+    primaryYAxis.length > 0 && !numericSet.has(primaryYAxis.toLowerCase());
+
+  if (xIsNumeric && yIsLabel) {
+    return {
+      ...config,
+      xAxisColumn: primaryYAxis,
+      yAxisColumns: [config.xAxisColumn],
+    };
+  }
+
+  if (
+    config.chartType === "pie" &&
+    xIsNumeric &&
+    config.yAxisColumns.every((column) =>
+      numericSet.has(column.toLowerCase()),
+    )
+  ) {
+    const labelColumn = columns.find(
+      (column) => !numericSet.has(column.name.toLowerCase()),
+    );
+    if (labelColumn) {
+      return {
+        ...config,
+        xAxisColumn: labelColumn.name,
+        yAxisColumns: [config.xAxisColumn],
+      };
+    }
+  }
+
+  return config;
+}
+
+export function suggestChartDefaults(
+  columns: QueryColumn[],
+  rows: unknown[][] = [],
+  suggestedChart?: ChartHints["suggested_chart"],
+): ChartAxisConfig {
+  if (suggestedChart) {
+    const chartType = suggestedChart.chart_type;
+    const xAxisColumn = suggestedChart.x_axis_column?.trim() ?? "";
+    const yAxisColumns = (suggestedChart.y_axis_columns ?? []).filter(Boolean);
+    const categoryColumn = suggestedChart.category_column ?? "";
+
+    if (xAxisColumn && yAxisColumns.length > 0) {
+      return {
+        chartType:
+          chartType === "line" ||
+          chartType === "pie" ||
+          chartType === "area" ||
+          chartType === "bar"
+            ? chartType
+            : "bar",
+        xAxisColumn,
+        yAxisColumns,
+        categoryColumn: categoryColumn || "",
+        visualConfig: { color_palette: "default" },
+      };
+    }
+  }
+
   if (!columns.length) {
     return {
       chartType: "bar",
@@ -74,16 +410,17 @@ export function suggestChartDefaults(columns: QueryColumn[]): ChartAxisConfig {
     };
   }
 
-  const numericColumns = columns.filter((column) =>
-    isNumericColumnType(column.type),
+  const numericColumnNames = findChartableNumericColumns(columns, rows);
+  const numericSet = new Set(
+    numericColumnNames.map((column) => column.toLowerCase()),
   );
   const labelColumns = columns.filter(
-    (column) => !isNumericColumnType(column.type),
+    (column) => !numericSet.has(column.name.toLowerCase()),
   );
 
   const xAxisColumn = labelColumns[0]?.name ?? columns[0].name;
   const yAxisColumn =
-    numericColumns[0]?.name ??
+    numericColumnNames[0] ??
     columns.find((column) => column.name !== xAxisColumn)?.name ??
     columns[0].name;
 
